@@ -1,5 +1,6 @@
 This tool manages reports from OWASP Dependency Check. Features include:
 
+* prioritizing vulnerabilities and vulnerable libraries by severity and number of affected projects
 * providing list of projects affected by a particular vulnerability
 * providing list of projects containing a particular library
 * grouping projects by team
