@@ -1,0 +1,44 @@
+# Routes
+# This file defines all application routes (Higher priority routes first)
+# ~~~~
+
+# Home page
+GET         /                                 controllers.Application.index(versions: Map[String, Int] = Map())
+GET         /versions                         controllers.Application.index(versions: Map[String, Int])
+GET         /dependencies                     controllers.Application.dependencies(classified: Option[Boolean] = None,        requiredTags: Seq[Int] ?= Seq(), noTag: Boolean ?= false)
+GET         /dependencies/classified          controllers.Application.dependencies(classified: Option[Boolean] = Some(true),  requiredTags: Seq[Int] ?= Seq(), noTag: Boolean ?= false)
+GET         /dependencies/unclassified        controllers.Application.dependencies(classified: Option[Boolean] = Some(false), requiredTags: Seq[Int] ?= Seq(), noTag: Boolean ?= false)
+POST        /add-tag                          controllers.Application.addTag
+POST        /remove-tag                       controllers.Application.removeTag
+POST        /set-classified                   controllers.Application.setClassified(classified: Boolean)
+POST        /purge-cache                      controllers.Application.purgeCache(versions: Map[String, Int], next: String)
+POST        /snooze/:id                       controllers.Application.snooze(id: String, versions: Map[String, Int])
+POST        /unsnooze/:snoozeId               controllers.Application.unsnooze(snoozeId: Int, versions: Map[String, Int])
+
+GET         /https-test/with-redirect         controllers.Application.testHttps(allowRedirect: Boolean = true)
+GET         /https-test                       controllers.Application.testHttps(allowRedirect: Boolean = false)
+
+GET         /stats/basic                      controllers.Statistics.basic(selector: Option[String] = None)
+GET         /stats/basic/*selector            controllers.Statistics.basic(selector: Option[String])
+GET         /stats/details                    controllers.Statistics.vulnerabilities(selector: Option[String], tagId: Option[Int])
+GET         /stats/libraries/vulnerable       controllers.Statistics.vulnerableLibraries(selector: Option[String])
+GET         /stats/libraries/all              controllers.Statistics.allLibraries(selector: Option[String])
+GET         /stats/libraries/gavs             controllers.Statistics.allGavs(selector: Option[String])
+
+GET         /libraries/vulnerabilities        controllers.Statistics.searchVulnerableSoftware(versionlessCpes: Seq[String], versionOption: Option[String])
+
+GET         /vulnerability/:name              controllers.Statistics.vulnerability(name, selector: Option[String])
+
+GET         /tags.json                        controllers.Application.tagsExport
+
+GET         /tags/import                      controllers.Application.tagsImport
+POST        /tags/import                      controllers.Application.tagsImportAction
+
+GET         /routes.js                        controllers.Application.javascriptRoutes
+
+GET         /sign-in                          controllers.AuthController.signIn
+POST        /sign-in                          controllers.AuthController.authenticate
+POST        /sign-out                         controllers.AuthController.signOut
+
+# Map static resources from the /public folder to the /assets URL path
+GET         /assets/*file                     controllers.Assets.versioned(path="/public", file: Asset)

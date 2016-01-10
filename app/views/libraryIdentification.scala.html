@@ -1,0 +1,16 @@
+@(dep: GroupedDependency, suppressionXmlIdOption: Option[String => String] = None, addLink: Boolean = true, addButtons: Boolean = true)
+@import com.ysoft.odc.Confidence
+@import scala.math.Ordered.orderingToOrdered
+
+@if(!dep.identifiers.exists(_.confidence >= Confidence.High)){
+    <span class="badge">file: @dep.fileNames.toSeq.sorted.mkString(", ")@if(addButtons){<span class="btn-xs library-identification-badge-hack">&nbsp;</span>}</span>
+}
+@for(id <- dep.identifiers.toSeq.sortBy(i => (i.confidence, i.identifierType, i.name, i.url)).reverse){
+    <span class="badge">
+        @identifier(id, addLink)
+        @for(cpe <- id.toCpeIdentifierOption; suppressionXmlId <- suppressionXmlIdOption; if addButtons){
+            <button class="btn btn-default btn-xs" data-toggle="collapse" data-target="#@suppressionXmlId(cpe)">×</button>
+        }
+        @if(addButtons && suppressionXmlIdOption.isDefined){<span class="btn-xs library-identification-badge-hack">&nbsp;</span>}
+    </span>
+}

@@ -1,0 +1,40 @@
+@(
+    prefix: String,
+    dependencies: Seq[(Int, Library)],
+    allTags: Seq[(Int, LibraryTag)],
+    dependenciesTags: Map[Int, Set[LibraryTagAssignment]],
+    details: (Int, PlainLibraryIdentifier) => Html
+)
+<ul class="table">
+@for((libraryId, Library(lib, classified)) <- dependencies){
+    <li class="versionless-dependency">
+        <a href="#@prefix-@libraryId" data-toggle="collapse">@lib.libraryType: @lib.libraryIdentifier</a>
+        <span class="related-links">
+            @if(lib.libraryType == LibraryType.Maven){
+                <a class="text-muted" href="http://mvnrepository.com/artifact/@lib.libraryIdentifier.replaceFirst(":", "/")">mvnrepository.com»</a>
+                <a class="text-muted" href="https://libraries.io/maven/@lib.libraryIdentifier">libraries.io»</a>
+                @defining(lib.libraryIdentifier.takeWhile(_ != ':').split('.')){ reverseDomain =>
+                    @if(! reverseDomain.startsWith(Seq("javax")) ){
+                        @for(i <- reverseDomain.length to 2 by -1; guessedDomain = reverseDomain.take(i).reverse.mkString("."); if !(TooGenericDomains contains guessedDomain)){
+                            <a class="text-muted" href="http://@guessedDomain">@guessedDomain»</a>
+                        }
+                    }
+                }
+            }
+            <a class="text-muted" href="https://www.google.com/search?q=@helper.urlEncode(lib.libraryIdentifier)&ie=utf-8&oe=utf-8">Google»</a>
+        </span>
+        <div id="@prefix-@libraryId" class="collapse">
+            @details(libraryId, lib)
+            @defining(dependenciesTags.getOrElse(libraryId, Set.empty)) { libraryTags =>
+                @for(
+                    (tagId, tag) <- allTags.sortBy(_._2.name.toLowerCase);
+                    exists = libraryTags.map(_.tagId) contains tagId
+                ){
+                    <button class="btn btn-default@if(exists){ btn-success}" onclick="toggleTag(this)" data-library-id="@libraryId" data-tag-id="@tagId" title="@tag.note">@tag.name</button>
+                }
+            }
+            <button class="btn btn-default@if(classified){ btn-success}" onclick="toggleClassified(this)" data-library-id="@libraryId">✓</button>
+        </div>
+    </li>
+}
+</ul>

@@ -1,0 +1,40 @@
+@(
+    selectedDependencies: Seq[(Int, Library)],
+    allTags: Seq[(Int, LibraryTag)],
+    dependencyTags: Map[Int, Set[LibraryTagAssignment]],
+    requiredClassification: Option[Boolean],
+    requiredTagSet: Set[Int],
+    noTag: Boolean,
+    tagsLink: Set[Int] => Call,
+    classificationLink: Option[Boolean] => Call,
+    noTagLink: Boolean => Call
+)(implicit header: DefaultRequest)
+@main(s"${requiredClassification match{case Some(true) => "Classified" case Some(false) => "Unclassified" case None => "All"}} dependencies (${selectedDependencies.size})") {
+    <div>
+        <div class="btn-group">
+            @for((newClassification, name) <- Seq(None -> "All", Some(true) -> "Classified", Some(false) -> "Unclassified"); isCurrent = newClassification == requiredClassification){
+                <a class="btn @if(isCurrent){active} btn-default" href="@classificationLink(newClassification)">@name</a>
+            }
+        </div>
+    </div>
+    <a href="@noTagLink(!noTag)" class="btn btn-primary @if(!noTag){active}">Required tags:</a>
+    @if(!noTag) {
+        @for((tagId, tag) <- allTags.sortBy(_._2.name); enabled = requiredTagSet contains tagId) {
+            <a
+                href="@tagsLink(if(enabled) requiredTagSet - tagId else requiredTagSet + tagId)"
+                class="btn btn-default @if(requiredTagSet contains tagId) {active btn-success}"
+                title="@tag.note"
+            >@tag.name</a>
+        }
+    }
+    <hr>
+    @dependencyClassification(
+        prefix = "dependency",
+        dependencies = selectedDependencies,
+        allTags = allTags,
+        dependenciesTags = dependencyTags,
+        details = (_, _) => {
+            Html("")
+        }
+    )
+}

@@ -1,0 +1,4 @@
+@(id: String, si: SnoozeInfo, collapseByDefault: Boolean)
+<button style="float: right;" id="@id-snooze-button" type="button" class="btn btn-sm collapse @if(!si.shouldCollapse(collapseByDefault)){in}" data-toggle="collapse" data-target="#@id-snoozing" aria-label="Snooze">
+    <span aria-hidden="true">&#128564;</span>
+</button>

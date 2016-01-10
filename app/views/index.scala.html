@@ -1,0 +1,88 @@
+@(
+    vulnerableDependencies: Seq[GroupedDependency],
+    unclassifiedDependencies: Seq[(Int, Library)],
+    warnings: Seq[Warning],
+    groupedDependencies: Seq[GroupedDependency],
+    dependenciesForLibraries: Map[PlainLibraryIdentifier, Set[GroupedDependency]],
+    allTags: Seq[(Int, LibraryTag)],
+    relatedDependenciesTags: Map[Int, Set[LibraryTagAssignment]],
+    librariesForTagsWithWarning: SortedMap[(Int, LibraryTag), Seq[(Int, Library)]],
+    lastRefreshTime: DateTime,
+    versions: Map[String, Int]
+)(implicit req: DefaultRequest, snoozes: SnoozesInfo , messages: Messages)
+@import com.ysoft.odc.Confidence
+@import helper._
+
+@main("Y Soft Dependency status"){
+
+@form(routes.Application.purgeCache(versions, "index")){
+    @CSRF.formField
+    <button type="submit" class="btn btn-default">Purge cache</button> <span class="text-muted">(last update form build server: @lastRefreshTime)</span>
+}
+
+@conditionalList(warnings, "Warnings", "warnings", allowSnoozes = false, versions = versions){
+    @for(w <- warnings.sortBy(w => (-w.severity.id, w.id)); isLow <- Some(w.severity < WarningSeverity.Warning) ){
+        @defining(snoozes(s"warning-${w.id}")){ si =>
+            <div class="alert @(w.severity match {
+                case controllers.WarningSeverity.Error => "alert-danger"
+                case controllers.WarningSeverity.Warning => "alert-warning"
+                case controllers.WarningSeverity.Info => "alert-info"
+            }) @if(si.isSnoozed){ text-muted}" id="warning-@w.id">
+                <button data-toggle="collapse" class="btn btn-sm toggle-warning" data-target="#warning-@w.id-details, #warning-@w.id-snooze-button">
+                    <span class="glyphicon glyphicon-grain" aria-hidden="true"></span>
+                </button>
+                @snoozeButton(s"warning-${w.id}", si, collapseByDefault = false)
+                @if(w.allowSnoozes){
+                    @snoozeForm(s"warning-${w.id}", si, versions)
+                }
+                <div id="warning-@w.id-details" class="collapse @if(!si.shouldCollapse(default = isLow)){in}">
+                    @w.html
+                    @if(w.allowSnoozes){
+                        @snoozesList(s"warning-${w.id}", si, versions)
+                    }
+                </div>
+                <div class="clearfix"></div>
+            </div>
+        }
+    }
+}
+
+@conditionalList(vulnerableDependencies, s"Vulnerable dependencies ${(Seq(None) ++ vulnerableDependencies.map(_.maxCvssScore)).max.map{maxScore => s"(max CVSS: $maxScore)"}.getOrElse("")}", "vulnerable", versions = versions) {
+    @dependencyList("vulnerable", vulnerableDependencies.sortBy(d => (d.maxCvssScore.map(-_), d.cpeIdentifiers.map(_.toCpeIdentifierOption.get).toSeq.sorted.mkString(" "))), None)
+}
+@* groupedDependencyList("Unclassified dependencies", "unclassified")(unclassifiedDependencies) *@
+
+@conditionalList(unclassifiedDependencies, "Unclassified dependencies", "unclassified", versions = versions){
+    @dependencyClassification(
+        prefix = "unclassified-dependency",
+        dependencies = unclassifiedDependencies,
+        allTags = allTags,
+        dependenciesTags = relatedDependenciesTags,
+        details = (libraryId: Int, lib: PlainLibraryIdentifier) => {
+            dependenciesForLibraries.get(lib).fold{Html("<p>No details</p>")} { deps =>
+                dependencyList(s"unclassified-library-$libraryId-details", deps.toSeq /*TODO: sort */, None)
+            }
+        }
+    )
+}
+
+@groupedDependencyList("Dependencies with low confidence of GAV", "gav-low-confidence", versions = versions)(groupedDependencies.filter(_.mavenIdentifiers.exists(_.confidence < Confidence.High)))
+
+@for(((tagId, tag), libraries) <- librariesForTagsWithWarning){
+    @conditionalList(libraries, s"${tag.name}", s"tag-warning-$tagId", versions = versions){
+        @for(note <- tag.note){
+            <p>@note</p>
+        }
+        @dependencyClassification(
+            prefix = s"tag-warning-$tagId-list",
+            dependencies = libraries,
+            allTags = allTags,
+            dependenciesTags = relatedDependenciesTags,
+            details = (_, _) => Html("")
+        )
+    }
+}
+
+@* @groupedDependencyList("All dependencies", "all", collapse = true)(groupedDependencies) *@
+
+}

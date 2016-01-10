@@ -1,0 +1,18 @@
+@(
+    projectsWithSelection: ProjectsWithSelection,
+    allDependencies: Seq[GroupedDependency]
+)(implicit header: DefaultRequest)
+
+@main(
+    title = s"All libraries for ${projectsWithSelection.projectNameText}",
+    projectsOption = Some((projectsWithSelection, routes.Statistics.allLibraries(_)))
+){
+    @dependencyList(
+        "all",
+        allDependencies.sortBy(_.identifiers.toIndexedSeq.sortBy(i => (i.confidence.id, i.identifierType, i.name)).mkString(", ")),
+        selectorOption = projectsWithSelection.selectorString,
+        expandByDefault = false,
+        addButtons = false
+    )
+
+}

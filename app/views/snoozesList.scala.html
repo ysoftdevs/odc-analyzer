@@ -1,0 +1,16 @@
+@(unused_id: String, si: SnoozeInfo, versions: Map[String, Int])(implicit requestHeader: RequestHeader)
+@import helper._
+@if(si.isSnoozed){
+    <h3>Snooze details</h3>
+    <ul class="snooze-list">
+    @for((snoozeId, snooze) <- si.snoozes){
+        <li>
+        @form(routes.Application.unsnooze(snoozeId, versions)) {
+            @snooze.reason – until @snooze.until
+            @CSRF.formField
+            <button type="submit" class="btn btn-danger">×</button>
+        }
+        </li>
+    }
+    </ul>
+}

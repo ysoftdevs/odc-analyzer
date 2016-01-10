@@ -1,0 +1,12 @@
+@import helper._
+@(loginForm: Form[LoginRequest]/*, socialProviderRegistry: SocialProviderRegistry*/)(implicit requestHeader: DefaultRequest, messages: Messages)
+
+@main("Log in"){
+    @form(routes.AuthController.authenticate()){
+        @CSRF.formField
+        @inputText(loginForm("username"))
+        @inputPassword(loginForm("password"))
+        @* checkbox(loginForm("rememberMe")) *@
+        <button type="submit">Log me in!</button>
+    }
+}

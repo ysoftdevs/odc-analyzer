@@ -1,0 +1,9 @@
+@(f: Form[String])(implicit requestHeader: DefaultRequest, messages: Messages)
+@import helper._
+@main("Data import"){
+    @form(action = controllers.routes.Application.tagsImportAction()){
+        @CSRF.formField
+        @textarea(f("data"))
+        <button type="submit">Import</button>
+    }
+}

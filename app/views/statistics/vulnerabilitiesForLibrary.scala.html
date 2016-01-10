@@ -1,0 +1,78 @@
+@(
+    vulnsAndVersionOption: Option[(Traversable[Vulnerability], String)],
+    cpes: Seq[String],
+    isDbOld: Boolean
+)(implicit header: DefaultRequest)
+@import helper._
+@main(
+    title = "Vulnerabilities for a libary"
+){
+    <script type="text/javascript">
+        function versionChanged(that){
+            function addClass(o, cl){o.addClass(cl)};
+            function removeClass(o, cl){o.removeClass(cl)};
+            var differentVersion = $(that).attr('data-version') != that.value;
+            $('.checked-version').css({color: differentVersion ? 'red' : ''});
+            var classForDifferentVersion = differentVersion ?addClass :removeClass;
+            var classForSameVersion = differentVersion ?removeClass :addClass;
+            classForDifferentVersion($('#submit-btn'), 'btn-primary');
+            classForSameVersion($('#different-version-warning'), 'hidden');
+        }
+    </script>
+    @form(routes.Statistics.searchVulnerableSoftware(Seq(), None), 'onsubmit->
+      """
+        |return (function(f){
+        |   var selectedCpes = $(f.elements.versionlessCpes).filter(function(i, x){return x.checked;}).map(function(i, x){return x.value;}).toArray()
+        |   if(selectedCpes.length == 0){
+        |       alert("Choose at least one CPE, please!");
+        |       return false;
+        |   }
+        |})(this);
+        |""".stripMargin
+    ){
+        <label>
+            Version:
+            <input
+                type="text" name="versionOption" id="version-field" value="@vulnsAndVersionOption.fold("")(_._2)"
+                data-version="@vulnsAndVersionOption.fold("")(_._2)"
+                onkeypress="versionChanged(this)"
+                onkeyup="versionChanged(this)"
+                onchange="versionChanged(this)"
+                onpaste="versionChanged(this)"
+                oncut="versionChanged(this)"
+            >
+            @for((_, version) <- vulnsAndVersionOption){
+                <span id="different-version-warning" class="hidden">Note that you are viewing results for version <strong>@version</strong>!</span>
+            }
+        </label>
+        <ul>
+            @for(cpe <- cpes){
+                <li><label><input type="checkbox" name="versionlessCpes" value="@cpe" checked> @cpe</label></li>
+            }
+        </ul>
+        <button type="submit" class="btn btn-default" id="submit-btn">Check</button>
+    }
+    @if(isDbOld){
+        <div class="alert alert-warning">The vulnerability database seems to be outdated. Result might be thus inaccurate. Contact the administrator, please.</div>
+    }
+    @vulnsAndVersionOption.fold{
+        Select desired version, please
+    }{ case (vulns, version) =>
+        @if(vulns.isEmpty){
+            <div class="alert alert-success">No known vulnerabilities for version <strong class="checked-version">@version</strong>.</div>
+        }else{
+            <div class="alert alert-warning">There @if(vulns.size == 1){is one known vulnerability}else{are some known vulnerabilities} for version <strong class="checked-version">@version</strong>. Consider @if(vulns.size==1){its}else{their} impact before using the library, please.</div>
+            @for(vuln <- vulns.toIndexedSeq.sortBy(v => (v.cvssScore.map(-_), v.name))){
+                <h2>@vuln.name</h2>
+                @vulnerability("h3", s"vulnerability-${vuln.name}-details", vuln)
+            }
+        }
+    }
+
+    @*if(vulnsAndVersionOption.isEmpty){ *@
+        <script type="text/javascript">
+            document.getElementById("version-field").focus();
+        </script>
+    @* } *@
+
+}

@@ -1,0 +1,12 @@
+@(name: String, id: String, collapse: Boolean = false, allowSnoozes: Boolean = true, versions: Map[String, Int])(list: Seq[GroupedDependency])(implicit rh: DefaultRequest, snoozes: SnoozesInfo, messages: Messages)
+@conditionalList(list, name, id, collapse = collapse, allowSnoozes = allowSnoozes, versions = versions){
+    <table class="table">
+    @for(dep <- list){
+        <tr>
+            <td>@identifiers(dep.mavenIdentifiers)</td>
+            <td>@identifiers(dep.cpeIdentifiers)</td>
+            <td>@dep.descriptions</td>
+        </tr>
+    }
+    </table>
+}

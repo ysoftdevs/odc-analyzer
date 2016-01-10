@@ -1,0 +1,123 @@
+#main{
+    padding-top: 50px;
+}
+.vuln-details{
+    border-collapse: collapse;
+}
+.vuln-details td, .vuln-details th {
+    padding: 5px;
+    border: 1px solid gray;
+}
+
+.toggle-warning {
+    float: left;
+    margin-right: 7px;
+}
+
+.versionless-dependency:not(:hover) .related-links{
+    display: none;
+}
+
+.description{
+    border-left: 3px solid black;
+    margin-bottom: 3px;
+    padding-left: 5px;
+}
+.badge a{
+    color: yellow;
+}
+h2:before, h3:before, h4:before, h5:before, h6:before {
+    display: block;
+    content: " ";
+    margin-top: -50px;
+    height: 50px;
+    visibility: hidden;
+}
+#project-selector{
+    float: left;
+    padding: 5px;
+    padding-top: 10px;
+}
+#project-selector button{
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#project-selector .dropdown-menu{
+    max-height: 300px;
+    overflow: auto;
+}
+#project-selector .base-project a{
+    font-weight: bolder;
+}
+
+h3.library-identification{
+    border: 1px solid black;
+    padding: 5px;
+}
+
+.library-identification-badge-hack{
+    display: inline-block;
+    width: 1px;
+    padding-right: 0;
+    padding-left: 0;
+    margin-left: 0;
+    margin-right: 0;
+    visibility: hidden;
+}
+
+.jqplot-table-legend{
+    background-color: rgba(255, 255, 255, 0.25);
+    padding: 5px;
+    margin-right: 5px;
+}
+
+.jqplot-table-legend-swatch{
+    height: 10px;
+    width: 10px;
+    margin-right: 5px;
+}
+.jqplot-data-label{
+    color: white;
+    font-weight: bold;
+}
+
+.severity{
+    font-size: smaller;
+    margin-bottom: 5px;
+}
+
+.severity .score{
+    font-weight: bolder;
+}
+
+.explained{
+    border-bottom: 1px dashed black;
+}
+.explained:after{
+    content: "?";
+    font-weight: bold;
+    display: inline-block;
+    color: white;
+    background-color: black;
+    border: 1px solid black;
+    border-radius: 100%;
+    text-align: center;
+    vertical-align: middle;
+    height: 1.5em;
+    width: 1.5em;
+    margin-left: 0.5em;
+    font-size: 50%;
+}
+.explained:hover{
+    border-bottom-color: blue;
+}
+.explained:hover:after{
+    background-color: blue;
+    border-color: blue;
+}
+
+.help{
+    border-left: 5px solid #00c7ff;
+    padding-left: 10px;
+}

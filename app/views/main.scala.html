@@ -1,0 +1,96 @@
+@import helper._
+@(title: String, headExtension: Html = Html(""), projectsOption: Option[(ProjectsWithSelection, Option[String] => Call)] = None)(content: Html)(implicit header: DefaultRequest)
+<!DOCTYPE html>
+<html>
+<head>
+    <title>@title</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="@routes.Assets.versioned("lib/bootstrap/css/bootstrap.css")">
+    <link rel="stylesheet" type="text/css" href="@routes.Assets.versioned("lib/bootstrap-datepicker/css/bootstrap-datepicker3.css")">
+    <link rel="stylesheet" type="text/css" href="@routes.Assets.versioned("css/main.css")">
+    <script type="text/javascript" src="@routes.Assets.versioned("lib/jquery/jquery.js")"></script>
+    <script type="text/javascript" src="@routes.Assets.versioned("lib/bootstrap/js/bootstrap.js")"></script>
+    <script type="text/javascript" src="@routes.Assets.versioned("lib/bootstrap-datepicker/js/bootstrap-datepicker.js")"></script>
+    <script type="text/javascript" src="@routes.Application.javascriptRoutes"></script>
+    <script type="text/javascript" src="@routes.Assets.versioned("js/main.js")"></script>
+    <script type="text/javascript">
+    if(!window.Routes){
+        window.Routes = {};
+    }
+    window.Routes.addTag = "@routes.Application.addTag";
+    window.Routes.removeTag = "@routes.Application.removeTag";
+    @* window.Routes.markClassified = "@routes.Application.markClassified"; *@
+        @* window.Routes.markUnclassified = "@routes.Application.markUnlassified"; *@
+    </script>
+    @if(!header.secure){
+        <script async defer type="text/javascript" src="@(routes.Application.testHttps(header.method == "GET").absoluteURL(secure = true))"></script>
+    }
+    @headExtension
+</head>
+<body>
+
+<nav class="navbar navbar-inverse navbar-fixed-top" id="header">
+    <div class="container">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            @* <a class="navbar-brand" href="#">YSSDC</a> *@
+        </div>
+        <div id="navbar" class="collapse navbar-collapse">
+            <ul class="nav navbar-nav">
+                <li><a href="@routes.Application.index(Map())">Status</a></li>
+                <li><a href="@routes.Application.dependencies(None)">Tags</a></li>
+                <li><a href="@routes.Statistics.basic(None)">Tag statistics</a></li>
+                <li><a href="@routes.Statistics.vulnerabilities(None, None)">Vulnerabilities</a></li>
+                <li><a href="@routes.Statistics.vulnerableLibraries(None)">Vulnerable libraries</a></li>
+                <li>
+                    @for((ProjectsWithSelection(filter, projects, teams), link) <- projectsOption){
+                        <div id="project-selector">
+                            <div class="dropdown">
+                                <button class="btn @if(filter.filters){btn-warning}else{btn-primary} dropdown-toggle" type="button" data-toggle="dropdown">@filter.descriptionHtml
+                                    <span class="caret"></span>
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a href="@link(None)"><i>all projects</i></a></li>
+                                    <li class="base-project"><a href="#">Teams</a></li>
+                                    @for(team <- teams){
+                                        <li><a href="@link(Some("team:"+team.id))" title="team leader: @team.leader">@team.name</a></li>
+                                    }
+                                    @for(report <- projects.ungroupedReportsInfo.toSeq.sortBy(p => p.projectName -> p.projectId -> p.subprojectNameOption)){
+                                        <li@if(report.subprojectNameOption.isEmpty){ class="base-project"}><a href="@link(Some("project:"+report.fullId))">@friendlyProjectName(report)</a></li>
+                                    }
+                                </ul>
+                            </div>
+                        </div>
+                    }
+                </li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+                <li>@header.identity.fold{
+                    <a class="btn btn-default" href="@routes.AuthController.signIn()">Log in</a>
+                }{ user =>
+                    @form(routes.AuthController.signOut()){
+                        @CSRF.formField
+                        <button type="submit" class="btn btn-warning">Logout @user.username</button>
+                    }
+                }</li>
+            </ul>
+        </div><!--/.nav-collapse -->
+    </div>
+</nav>
+
+<div class="container" id="main">
+    <h1>@title</h1>
+    @content
+
+    <hr>
+    That's all
+</div>
+
+</body>
+</html>

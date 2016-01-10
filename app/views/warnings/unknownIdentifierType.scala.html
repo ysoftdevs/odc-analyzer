@@ -1,0 +1,7 @@
+@(unknownIdentifierTypes: Set[String])
+There are some unknown identifier types. These will not be handled by the application:
+<ul>
+    @for(identifierType <- unknownIdentifierTypes.toSeq.sorted){
+        <li>@identifierType</li>
+    }
+</ul>

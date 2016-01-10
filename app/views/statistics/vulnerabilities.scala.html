@@ -1,0 +1,40 @@
+@(
+    projectsWithSelection: ProjectsWithSelection,
+    tagOption: Option[(Int, LibraryTag)],
+    statistics: Statistics.LibDepStatistics
+)(implicit messagesApi: MessagesApi, requestHeader: DefaultRequest)
+
+@main(
+    title = s"details for ${projectsWithSelection.projectNameText}${tagOption.map(_._2.name).fold("")(" and tag "+_)}",
+    projectsOption = Some((projectsWithSelection, x => routes.Statistics.vulnerabilities(x, tagOption.map(_._1))))
+){
+    We have @statistics.vulnerabilitiesToDependencies.size vulnerabilities
+    of @statistics.vulnerabilitiesToDependencies.flatMap(_._2).toSet.size dependencies (@statistics.vulnerabilitiesToDependencies.flatMap(_._2.flatMap(_.plainLibraryIdentifiers)).toSet.size libaries).
+    @if(!projectsWithSelection.isProjectSpecified){
+        They are affecting @statistics.vulnerabilitiesToDependencies.flatMap(_._2.flatMap(_.projects)).toSet.size projects.
+    }else{
+        Just one project is selected.
+        <div class="alert alert-warning">When a project is selected, YSVSS might differ, as it is computed over a subset of subprojects. As a result, order of vulnerabilities might differ from their order at all-projects view.</div>
+    }
+    <div class="help">
+        Vulnerabilities are sorted by number of affected projects multiplied by their severity. If the score is the same, then they are sorted by severity. If even this matches, they are sorted by name (which is related to vulnerability age).
+    </div>
+    @for((vulnerability, dependencies) <- statistics.vulnerabilitiesToDependencies.toSeq.sortBy{case (vuln, deps) =>
+        (
+            vuln.ysvssScore(deps).map(-_),  // total score
+            vuln.cvssScore.map(-_),         // CVSS score
+            vuln.name                       // make it deterministic
+        )
+    }){
+        <h2><a href="@routes.Statistics.vulnerability(vulnerability.name, projectsWithSelection.selectorString)">@vulnerability.name</a>
+            <span class="severity">
+                (<span class="explained" title="vulnerability CVSS score">@(vulnerability.cvss.score.getOrElse{"?"})</span> ×
+                    <span class="explained" title="number of affected projects">@dependencies.flatMap(_.projects).toSet.size</span> =
+                    <span class="explained score" title="total score">@(vulnerability.ysvssScore(dependencies).fold{"?"}{d => f"$d%2.2f"})</span>
+                )</span>
+        </h2>
+        <p>@vulnerability.description</p>
+        @* <p>@dependencies.map(_.identifiers)</p> *@
+        @* <p>@dependencies.flatMap(_.projects).toSet</p> *@
+    }
+}

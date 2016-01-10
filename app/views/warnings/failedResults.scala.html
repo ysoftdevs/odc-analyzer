@@ -1,0 +1,19 @@
+@(errors: Map[String, Throwable])
+<ul>
+    Some reports failed to be downloaded:
+    @for((project, e) <- errors){
+        <li>
+            @project: @e
+            @(e match {
+                case upickle.Invalid.Data(data, msg) => s"$msg (data: $data)"
+                case upickle.Invalid.Json(msg, input) => s"$msg (input: $input)"
+                case _ => ""
+            })
+
+        </li>
+        @{
+            play.api.Logger.logger.error(s"Project results of $project failed to parse.", e)
+            ()
+        }
+    }
+</ul>

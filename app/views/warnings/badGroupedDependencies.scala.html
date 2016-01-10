@@ -1,0 +1,7 @@
+@(name: String, count: Int, items: Traversable[_])
+@name (@count)<br>
+<ul>
+    @for(i <- items){
+        <li>@i</li>
+    }
+</ul>

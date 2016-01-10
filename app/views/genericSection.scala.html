@@ -1,0 +1,3 @@
+@(idPrefix: String)(ht: String)(name: String, description: String)(content: Html)
+<@ht id="@idPrefix-@name-header" data-toggle="collapse" data-target="#@idPrefix-@name-details">@description</@ht>
+<div id="@idPrefix-@name-details" class="collapse in">@content</div>

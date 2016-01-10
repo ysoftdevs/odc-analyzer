@@ -1,0 +1,77 @@
+@(idPrefix: String, list: Seq[GroupedDependency], selectorOption: Option[String], expandByDefault: Boolean = true, addButtons: Boolean = true)
+@cpeHtmlId(cpe: String) = @{
+    cpe.getBytes("utf-8").mkString("-")
+}
+
+@for(dep <- list; depPrefix = s"$idPrefix-${dep.sha1}"){
+    <h3 class="library-identification" id="@depPrefix-head" data-toggle="collapse" data-target="#@depPrefix-details">
+        @libraryIdentification(dep, Some(cpe => s"$idPrefix-${dep.sha1}-suppression-cpe-${cpeHtmlId(cpe)}"), addLink = false, addButtons = addButtons)
+        @for(s <- dep.maxCvssScore) {
+            <span class="severity">
+                (<span title="highest vulnerability score" class="explained">@s</span>
+                × <span class="explained" title="affected project count">@dep.projects.size</span>
+                = <span class="explained score" title="total score">@dep.ysdssScore</span>)
+                (vulns:&nbsp;@dep.vulnerabilities.size)
+            </span>
+        }
+        @dep.cpeIdentifiers.toSeq match {
+            case Seq() => {}
+            case cpeIds => {
+                <a href="@routes.Statistics.searchVulnerableSoftware(cpeIds.map(_.name.split(':').take(4).mkString(":")).toSeq, None)" title="Search for known vulnerabilities"><span class="glyphicon glyphicon-flash"></span></a>
+            }
+        }
+    </h3>
+    @for(identifier <- dep.identifiers; cpe <- identifier.toCpeIdentifierOption ) {
+        <div id="@(s"$idPrefix-${dep.sha1}-suppression-cpe-${cpeHtmlId(cpe)}")" class="collapse">@SuppressionXml.forCpe(dep, cpe)</div>
+    }
+    <div id="@depPrefix-details" class="collapse @if(expandByDefault){ in }">
+        @if(dep.descriptions.size > 1){
+            <div class="alert alert-warning">Multiple descriptions for this dependency!</div>
+        }
+        @for(descriptionParagraphs <- dep.parsedDescriptions){
+            <div class="description">
+                @for(descriptionParagraphLines <- descriptionParagraphs){
+                    <p>
+                        @for(line <- descriptionParagraphLines) {
+                            @line<br>
+                        }
+                    </p>
+                }
+            </div>
+        }
+        <h4 data-toggle="collapse" data-target="#@depPrefix-evidence-details">Evidence</h4>
+        <table id="@depPrefix-evidence-details" class="collapse table table-bordered table-condensed">
+            <tr>
+                <th>confidence</th>
+                <th>evidence type</th>
+                <th>name</th>
+                <th>source</th>
+                <th>value</th>
+            </tr>
+            @for(ev <- dep.dependencies.keySet.map(_.evidenceCollected).flatten){
+                <tr>
+                    <td>@ev.confidence
+                    <td>@ev.evidenceType
+                    <td>@ev.name
+                    <td>@ev.source
+                    <td>@ev.value
+                </tr>
+            }
+        </table>
+        <h4 data-toggle="collapse" data-target="#@depPrefix-projects-details">Affected projects (@dep.projects.size)</h4>
+        <ul id="@depPrefix-projects-details" class="collapse in">@for(p <- dep.projects.toIndexedSeq.sorted){<li>@friendlyProjectName(p)</li>}</ul>
+        <h4 data-toggle="collapse" data-target="#@depPrefix-vulnerabilities-details">Vulnerabilities (@dep.vulnerabilities.size)</h4>
+        <ul id="@depPrefix-vulnerabilities-details" class="collapse in">
+            @for(vuln <- dep.vulnerabilities.toSeq.sortBy(_.cvssScore.map(-_)); vulnPrefix = s"$depPrefix-vulnerabilities-details-${vuln.name}"){
+                <li>
+                    <h5 data-toggle="collapse" data-target="#@vulnPrefix-details">@vuln.name <a href="@routes.Statistics.vulnerability(vuln.name, selectorOption)"><span class="glyphicon glyphicon-log-out"></span></a></h5>
+                    <div id="@vulnPrefix-details" class="collapse">
+                        @vulnerability("h6", s"$idPrefix-${dep.sha1}", vuln)
+                        <h6 data-toggle="collapse" data-target="#@(s"$idPrefix-${dep.sha1}-suppression-cve-${vuln.name}")">CVE suppression</h6>
+                        <div id="@(s"$idPrefix-${dep.sha1}-suppression-cve-${vuln.name}")" class="collapse">@SuppressionXml.forVuln(dep, vuln)</div>
+                    </div>
+                </li>
+            }
+        </ul>
+    </div>
+}

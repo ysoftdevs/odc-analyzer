@@ -1,0 +1,9 @@
+@(id: String, si: SnoozeInfo, versions: Map[String, Int])(implicit rh: RequestHeader, snoozes: SnoozesInfo, messages: Messages)
+@import helper._
+
+@form((routes.Application.snooze(id, versions): Call).withFragment(id), 'id -> s"$id-snoozing", 'class -> s"snoozing collapse${if(si.shouldExpandForm) "in" else ""}") {
+    @CSRF.formField
+    @inputText(si.form("until"), '_label -> "Snooze until", Symbol("data-provide") -> "datepicker", Symbol("data-date-format") -> "dd-mm-yyyy")
+    @inputText(si.form("reason"), '_label -> "Reason")
+    <button type="submit" class="btn btn-default">Snooze!</button>
+}

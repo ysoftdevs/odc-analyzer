@@ -1,0 +1,64 @@
+@(
+    projectsWithSelection: ProjectsWithSelection,
+    vulnerableDependencies: Seq[GroupedDependency],
+    allDependenciesCount: Int
+)(implicit header: DefaultRequest)
+
+@main(
+    title = s"Vulnerable libraries for ${projectsWithSelection.projectNameText} (${vulnerableDependencies.size} deps, ${vulnerableDependencies.flatMap(_.cpeIdentifiers.map(_.toCpeIdentifierOption.get)).toSet.size} CPEs)",
+    projectsOption = Some((projectsWithSelection, routes.Statistics.vulnerableLibraries(_)))
+){
+    <script type="text/javascript" src="@routes.Assets.versioned("lib/jqplot/jquery.jqplot.min.js")"></script>
+    <script type="text/javascript" src="@routes.Assets.versioned("lib/jqplot/plugins/jqplot.pieRenderer.min.js")"></script>
+    <h2>Plot</h2>
+    <div id="vulnerable-dependencies-chart"></div>
+<script type="text/javascript">
+$(document).ready(function(){
+    var data = [
+        ['Vulnerable', (@(vulnerableDependencies.size))], ['No known vulnerability', (@(allDependenciesCount - vulnerableDependencies.size))]
+    ];
+    var plot1 = jQuery.jqplot ('vulnerable-dependencies-chart', [data], {
+        seriesDefaults: {
+            // Make this a pie chart.
+            renderer: jQuery.jqplot.PieRenderer,
+            rendererOptions: {
+                // Put data labels on the pie slices.
+                // By default, labels show the percentage of the slice.
+                showDataLabels: true,
+                dataLabels: 'value',
+                startAngle: -90,
+                seriesColors: ['red', 'green'],
+                legendOptions: {
+                    textColor: 'white'
+                }
+            }
+        },
+        legend: { show:true, location: 'e' }
+    });
+});
+</script>
+    <h2>List</h2>
+    <div class="help">
+        <p>Libraries are sorted:</p>
+        <ol>
+            <li>by total score (max vulnerability score × number of affected dependencies) if vulnerability score is defined for at least one vulnerability</li>
+            <li>by affected dependency count if the score above is not defined</li>
+            <li>by number of vulnerabilities</li>
+            <li>by affected project count</li>
+        </ol>
+        <p>Note that the number of affected projects is calculated from the current view, not from all projects (unless all projects are selected).</p>
+    </div>
+    @dependencyList(
+        "vulnerable",
+        vulnerableDependencies.sortBy(d => (
+                d.ysdssScore.map(-_),                                                           // total score is the king
+                if(d.ysdssScore.isEmpty) Some(-d.dependencies.size) else None,                  // more affected dependencies if no vulnerability has defined severity
+                -d.vulnerabilities.size,                                                        // more vulnerabilities
+                -d.projects.size,                                                               // more affected projects
+                d.cpeIdentifiers.map(_.toCpeIdentifierOption.get).toSeq.sorted.mkString(" "))   // at least make the order deterministic
+        ),
+        selectorOption = projectsWithSelection.selectorString,
+        expandByDefault = false,
+        addButtons = false
+    )
+}

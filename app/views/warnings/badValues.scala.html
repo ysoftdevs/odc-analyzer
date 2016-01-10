@@ -1,0 +1,7 @@
+@(name: String, items: Seq[(ReportInfo, Html)])
+<strong>@name:</strong>
+<ul>
+    @for((name, i) <- items){
+        <li>@friendlyProjectName(name): @i</li>
+    }
+</ul>

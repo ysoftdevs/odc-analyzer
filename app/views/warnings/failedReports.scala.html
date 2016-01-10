@@ -1,0 +1,7 @@
+@(failedReports: Set[Build], urlBase: String)
+<strong>There are some reports that failed to build:</strong>
+<ul>
+    @for(build <- failedReports.toSeq.sortBy(_.projectName)){
+        <li>@secureLink(build.resultLink(urlBase)){@build.projectName}</li>
+    }
+</ul>

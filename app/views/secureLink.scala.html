@@ -1,0 +1,5 @@
+@(url: String)(content: Html)
+@url match{
+    case NormalUrlPattern(_ @ _*) => {<a href="@url">@content</a>}
+    case "" => {@content}
+}

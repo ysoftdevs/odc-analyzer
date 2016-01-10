@@ -1,0 +1,187 @@
+@(
+    projectsWithSelection: ProjectsWithSelection,
+    tagStatistics: Seq[Statistics.TagStatistics],
+    parsedReports: DependencyCheckReportsParser.Result
+)(implicit messagesApi: MessagesApi, requestHeader: DefaultRequest)
+@import com.ysoft.odc.CWE
+@import controllers.Statistics.TagStatistics
+@import play.api.libs.json.{JsNull, JsString}
+@import scala.language.implicitConversions
+@implicitTagStatistics(ts: TagStatistics) = @{ts.stats}
+@he = {
+    <script type="text/javascript" src="@routes.Assets.versioned("lib/d3js/d3.js")"></script>
+    <script type="text/javascript" src="@routes.Assets.versioned("lib/jqplot/jquery.jqplot.min.js")"></script>
+    <script type="text/javascript" src="@routes.Assets.versioned("lib/jqplot/plugins/jqplot.barRenderer.min.js")"></script>
+    <script type="text/javascript" src="@routes.Assets.versioned("lib/jqplot/plugins/jqplot.categoryAxisRenderer.min.js")"></script>
+    <link type="text/css" rel="stylesheet" href="@routes.Assets.versioned("lib/jqplot/jquery.jqplot.min.css")">
+    <link type="text/css" rel="stylesheet" href="@routes.Assets.versioned("lib/tablesorter/css/theme.default.css")">
+    <script type="text/javascript" src="@routes.Assets.versioned("lib/tablesorter/js/jquery.tablesorter.min.js")"></script>
+    <script type="text/javascript" src="@routes.Assets.versioned("lib/StickyTableHeaders/js/jquery.stickytableheaders.min.js")"></script>
+    <script type="text/javascript">
+        $(function(){
+            $('.tablesorter').tablesorter();
+            $('.tablesorter').stickyTableHeaders({fixedOffset: $('#header')});
+        })
+    </script>
+}
+@plotData(frequency: Map[Option[CWE], Int]) = @{
+    import play.api.libs.json.Json._
+    val (ticks, details, values) = frequency.toSeq.sortBy{case (cweOption, _) => cweOption.map(c => c.numberOption -> c.name)}.map{
+        case (Some(cwe), freq) => (toJson(cwe.brief), toJson(cwe.name), freq)
+        case (None, freq) => (JsString("(none)"), JsNull, freq)
+    }.unzip3
+    toJson(Map(
+        "ticks" -> toJson(ticks),
+        "details" -> toJson(details),
+        "values" -> toJson(values)
+    ))
+}
+@main(
+    title = s"statistics for ${projectsWithSelection.projectNameText}",
+    headExtension = he,
+    projectsOption = Some((projectsWithSelection, routes.Statistics.basic(_)))
+){
+
+    All dependencies: @parsedReports.groupedDependencies.size <br>
+    Vulnerable dependencies: @parsedReports.vulnerableDependencies.size <br>
+    Vulnerabilities: @parsedReports.vulnerableDependencies.flatMap(_.vulnerabilities.map(_.name)).toSet.size<br>
+    Unique CPEs of vulnerable dependencies: @parsedReports.vulnerableDependencies.flatMap(_.cpeIdentifiers.map(_.toCpeIdentifierOption.get)).toSet.size <br>
+    Unique CPEs of all dependencies: @parsedReports.groupedDependencies.flatMap(_.cpeIdentifiers.map(_.toCpeIdentifierOption.get)).toSet.size <br>
+    @if(!projectsWithSelection.isProjectSpecified){
+        Multi-project dependencies: @parsedReports.groupedDependencies.filter(_.projects.size > 1).toSet.size <br>
+    }
+
+
+    <div id="weakness" data-data='@{plotData(Statistics.computeWeaknessesFrequency(parsedReports.groupedDependencies.flatMap(_.vulnerabilities).toSet))}'></div>
+    <script type="text/javascript">
+
+    var WeaknessIdentifier = function(brief, verbose){
+        this.brief = brief;
+        this.verbose = verbose;
+    };
+    WeaknessIdentifier.prototype.toString = function(){return "x"+this.brief;};
+
+
+
+    function initPlot(idPrefix, data){
+        var parentEl = $("#"+idPrefix);
+        var id = idPrefix+"-chart";
+        var detailsId = idPrefix+'-details';
+        if(parentEl.attr('data-initialized') == 'true'){
+            console.log('Not reinitializing the plot: ', idPrefix);
+            return;
+        }
+        console.log(parentEl);
+        parentEl.append($('<div>' ).attr({
+            "id": id,
+            "style" : "height: 300px; width: 900px;"
+        }));
+        parentEl.append($('<div>' ).attr({
+            "id": detailsId,
+            "style" : "height: 3ex; overflow: hidden;"
+        }));
+
+        var el = $("#"+id);
+        $.jqplot.config.enablePlugins = true;
+        data = data || JSON.parse(parentEl.attr('data-data'));
+        var s1 = data.values;
+
+        var ticks = data.ticks;
+        var details = data.details;
+
+        var plot1 = $.jqplot(id, [s1], {
+            animate: false,  //!$.jqplot.use_excanvas, // Only animate if we're not using excanvas (not in IE 7 or IE 8)..
+            seriesDefaults:{
+                renderer:$.jqplot.BarRenderer,
+                pointLabels: { show: true }
+            },
+            axes: {
+                xaxis: {
+                    renderer: $.jqplot.CategoryAxisRenderer,
+                    ticks: ticks
+                }
+            },
+            highlighter: { show: false }
+        });
+
+        el.bind('jqplotDataClick',
+            function (ev, seriesIndex, pointIndex, data) {
+                //$('#info1').html('series: '+seriesIndex+', point: '+pointIndex+', data: '+data);
+            }
+        );
+        var detailsElement = $('#'+detailsId);
+        el.bind('jqplotDataUnhighlight', function(ev, seriesIndex, pointIndex, data){
+            detailsElement.text('');
+        });
+        el.bind('jqplotDataHighlight', function(ev, seriesIndex, pointIndex, data){
+            console.log('high', seriesIndex, pointIndex, data);
+            detailsElement.text((details[pointIndex]||"not described")+": "+s1[pointIndex]+"×");
+        });
+
+        el.attr('data-initialized', 'true');
+    };
+    $(document).ready(function(){
+        initPlot('weakness');
+        var n=0;
+        $('.stats').click(function(e){
+            console.log(e);
+            console.log(e.target);
+            var id = "modal-"+n;
+            n++;
+            var data = JSON.parse($(e.target).attr('data-data'));
+            var modalHeader = $('<div class="modal-header">' ).append($('<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>' )).append($('<h4 class="modal-title">Modal title</h4>'));
+            var modalBody = $('<div class="modal-body"></div>').attr({id: id});
+            var modalFooter = $('<div class="modal-footer"></div>');
+            var modalDialog = $('<div class="modal-dialog">').append($('<div class="modal-content">').append(modalHeader).append(modalBody).append(modalFooter));
+            var modal = $('<div class="modal fade">').append(modalDialog );
+            modalDialog.css({
+                width: '930px',
+                //marginLeft: '-465px'
+                margin: 'auto'
+            });
+            modal.on('shown.bs.modal', function(){initPlot(id, data)});
+            modal.on('hidden.bs.modal', function(){modal.remove()});
+            $(document.body ).append(modal);
+            modal.modal({keyboard: true});
+            console.log(id, data);
+            return false;
+        });
+    });
+
+
+
+    </script>
+
+    <table class="table table-striped tablesorter">
+        <thead>
+            <tr>
+                <th>tag name</th>
+                <th># of vulns</th>
+                <th>vulnerable</th>
+                <th>all</th>
+                <th>vulnerable/all</th>
+                <th>CPE %</th>
+                <th>vulnerable/CPE</th>
+            </tr>
+        </thead>
+        <tbody>
+            @for(s <- tagStatistics){
+                <tr>
+                    <td title="@s.tag.note">
+                        <a href="@routes.Statistics.vulnerabilities(projectsWithSelection.selectorString, Some(s.tagId))" target="_blank" class="stats">@s.tag.name</a>
+                        @*<div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 30em;">@s.tag.note</div>*@
+                    </td>
+                    <td class="text-right">
+                        @s.vulnerabilities.size
+                        <button type="button" class="glyphicon glyphicon-signal btn btn-xs stats" @if(s.vulnerabilities.isEmpty){disabled="disabled"} data-data="@plotData(s.weaknessesFrequency)"></button>
+                    </td>
+                    <td class="text-right">@s.vulnerableDependencies.size</td>
+                    <td class="text-right">@s.dependencies.size</td>
+                    <td class="text-right">@(f"${s.vulnerableRatio*100}%2.2f")&nbsp;%</td>
+                    <td class="text-right">@(f"${s.cpeRatio*100}%2.2f")&nbsp;%</td>
+                    <td class="text-right">@(f"${s.vulnerableDependencies.size.toDouble*100.0/s.dependenciesWithCpe.size.toDouble}%2.2f")&nbsp;%</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

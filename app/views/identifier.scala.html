@@ -1,0 +1,3 @@
+@(identifier: Identifier, addLink: Boolean = true)
+@identifier.confidence.toString.toLowerCase:
+@secureLink(if(addLink) identifier.url else ""){@identifier.name}

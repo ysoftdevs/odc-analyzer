@@ -1,0 +1,18 @@
+@(list: Traversable[_], name: String, id: String, collapse: Boolean = false, allowSnoozes: Boolean = true, versions: Map[String, Int])(content: => Html)(implicit rh: DefaultRequest, snoozes: SnoozesInfo, messages: Messages)
+@if(list.nonEmpty){
+    @defining(snoozes(id)){ case si =>
+        @if(allowSnoozes) {
+            @snoozeButton(id, si, collapse)
+        }
+        <h2 id="@id" @if(si.isSnoozed){class="text-muted"} data-toggle="collapse" data-target="#@id-div, #@id-snooze-button">@if(si.isSnoozed){&#128564;} @name (@{list.size})</h2>
+        <div id="@id-div" class="collapse@if(!si.shouldCollapse(collapse)){ in}">
+            @if(allowSnoozes) {
+                @snoozeForm(id, si, versions)
+            }
+            @content
+            @if(allowSnoozes) {
+                @snoozesList(id, si, versions)
+            }
+        </div>
+    }
+}

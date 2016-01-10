@@ -1,0 +1,117 @@
+# This is the main configuration file for the application.
+# ~~~~~
+
+# Secret key
+# ~~~~~
+# The secret key is used to secure cryptographics functions.
+#
+# This must be changed for production, but we recommend not changing it in this file.
+#
+# See https://www.playframework.com/documentation/latest/ApplicationSecret for more details.
+play.crypto.secret = "changeme"
+
+# The application languages
+# ~~~~~
+play.i18n.langs = [ "en" ]
+
+play.modules.enabled += "modules.ConfigModule"
+play.modules.enabled += "modules.SilhouetteModule"
+
+yssdc{
+  bamboo{
+    url = …
+  }
+  reports {
+    provider = "bamboo"
+    bamboo{
+      user = …
+      password = …
+    }
+  }
+  projects = {jobId:humanReadableName, …}
+  teams = […]
+  exclusions{
+    missingGAV{
+      bySha1 = []
+    }
+  }
+  projectsToTeams = {
+    …
+  }
+  teamLeaders = { # all teams used here must be listed above
+    team: leader,
+    …
+  }
+}
+
+# Router
+# ~~~~~
+# Define the Router object to use for this application.
+# This router will be looked up first when the application is starting up,
+# so make sure this is the entry point.
+# Furthermore, it's assumed your route file is named properly.
+# So for an application router like `my.application.Router`,
+# you may need to define a router file `conf/my.application.routes`.
+# Default to Routes in the root package (and conf/routes)
+# play.http.router = my.application.Routes
+
+# Database configuration
+# ~~~~~
+# You can declare as many datasources as you want.
+# By convention, the default datasource is named `default`
+#
+
+slick.dbs.default {
+  # Connection to internal database. It must be PostgreSQL.
+  driver = "slick.driver.PostgresDriver$"
+  db{
+    url = "jdbc:postgresql://localhost/odca"
+    user = …
+    password = …
+  }
+}
+slick.dbs.odc {
+  # Connection to ODC database. It should be MySQL/MariaDB. H2 DB is not supported. PostgreSQL might work if you get ODC working with it, Other databases might be supported in future.
+  driver = "slick.driver.MySQLDriver$"
+  db {
+    url = "jdbc:mysql://127.0.0.1/dependencycheck"
+    # Those credentials are default in ODC (but you might have changed them):
+    user = "dcuser"
+    password = "DC-Pass1337!"
+  }
+}
+
+# Evolutions
+# ~~~~~
+# You can disable evolutions if needed
+# play.evolutions.enabled=false
+
+# You can disable evolutions for a specific datasource if necessary
+# play.evolutions.db.default.enabled=false
+
+# If you want a persistent cache for development (it should speed up reload cycles), you might want to uncomment and adjust the following lines:
+#play.modules.disabled+="play.api.cache.EhCacheModule"
+#play.cache.path = "/home/user/.cache/odc-analysis"
+
+
+silhouette {
+  # Authenticator settings
+  authenticator.cookieName = "authenticator"
+  authenticator.cookiePath = "/"
+  authenticator.secureCookie=false # is ignored; overriden in app/controllers/AuthController.scala; But it must be present!
+  authenticator.httpOnlyCookie = true
+  authenticator.useFingerprinting = true
+  authenticator.authenticatorIdleTimeout = 12 hours
+  authenticator.authenticatorExpiry = 12 hours
+
+  authenticator.rememberMe.cookieMaxAge = 30 days
+  authenticator.rememberMe.authenticatorIdleTimeout = 5 days
+  authenticator.rememberMe.authenticatorExpiry = 30 days
+
+  credentialsVerificationService{
+    type="allow-all" # accepts any credentials; allowed in dev mode only
+    #type="external" # verifies credentials at the URL specified below
+    #url="http://localhost:9050/"
+  }
+}
+

@@ -1,0 +1,12 @@
+@(dep: GroupedDependency, details: scala.xml.Node)
+<pre>&lt;?xml version="1.0" encoding="UTF-8"?>
+@((
+<suppressions xmlns="https://www.owasp.org/index.php/OWASP_Dependency_Check_Suppression">
+    <suppress>
+        <notes>file name: {dep.fileNames.mkString(" OR ")}</notes>
+        <sha1>{dep.sha1}</sha1>
+        {details}
+    </suppress>
+</suppressions>
+).toString)
+</pre>

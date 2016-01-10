@@ -1,0 +1,5 @@
+@(emptyReports: Seq[Build], urlBase: String)
+<strong>Following projects have produced no results:</strong>
+@for(build <- emptyReports.toSeq.sortBy(_.projectName)){
+    <li>@secureLink(build.resultLink(urlBase)){@build.projectName}</li>
+}
