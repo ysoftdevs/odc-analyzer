@@ -9,6 +9,7 @@ final case class ReportInfo(
 
   import scala.math.Ordered.orderingToOrdered
 
+  //noinspection ScalaUnnecessaryParentheses
   override def compare(that: ReportInfo): Int = ((projectName, subprojectNameOption, fullId)) compare ((that.projectName, that.subprojectNameOption, that.fullId))
 
   // It seems to be a good idea to have a custom equals and hashCode for performance reasons
