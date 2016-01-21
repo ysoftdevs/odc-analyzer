@@ -26,9 +26,9 @@ final case class ReportInfo(
 
 object ProjectsWithReports{
 
-  private val RestMessBeginRegexp = """^/Report results-XML/""".r
+  private val RestMessBeginRegexp = """^/Report results-XML(/|$)""".r
 
-  private val RestMessEndRegexp = """/(target/)?dependency-check-report\.xml$""".r
+  private val RestMessEndRegexp = """(/|^)(target/)?dependency-check-report\.xml$""".r
 
 }
 
@@ -43,12 +43,11 @@ class ProjectsWithReports (val projects: Projects, val reports: Set[String]) {
       val removeTrailingMess = RestMessEndRegexp.replaceAllIn(_: String, "")
       val removeMess = removeLeadingMess andThen removeTrailingMess
       val subProjectOption = Some(removeMess(theRest)).filter(_ != "")
-      subProjectOption.fold(baseName)(baseName+"/"+_)
       unfriendlyName -> ReportInfo(
         projectId = baseName,
         fullId = unfriendlyName,
         projectName = projects.projectMap(baseName),
-        subprojectNameOption = subProjectOption
+        subprojectNameOption = subProjectOption.orElse(Some("root project"))
       )
     }.toMap
     reportsMap ++ reportsMap.values.map(r => r.projectId -> ReportInfo(projectId = r.projectId, fullId = r.projectId, subprojectNameOption = None, projectName = r.projectName))
