@@ -38,12 +38,15 @@ private final case class ProjectFilter(project: ReportInfo) extends Filter{
 private final case class TeamFilter(team: Team) extends Filter{
   override def filters: Boolean = true
   override def subReports(r: Result): Option[Result] = {
-
-    val reportInfoByFriendlyProjectName = r.projectsReportInfo.ungroupedReportsInfo.map(ri => friendlyProjectName(ri) -> ri).toSeq.groupBy(_._1).mapValues{
+    val Wildcard = """^(.*): \*$""".r
+    val reportInfoByFriendlyProjectNameMap = r.projectsReportInfo.ungroupedReportsInfo.map(ri => friendlyProjectName(ri) -> ri).toSeq.groupBy(_._1).mapValues{
       case Seq((_, ri)) => ri
       case other => sys.error("some duplicate value: "+other)
     }.map(identity)
-    val reportInfos = team.projectNames.map(reportInfoByFriendlyProjectName)
+    val ProjectName = """^(.*): (.*)$""".r
+    val rootProjectReports = reportInfoByFriendlyProjectNameMap.collect{case (ProjectName(rootProject, subproject), v) => (rootProject, v)}.groupBy(_._1).mapValues(_.map(_._2))
+    def reportInfoByFriendlyProjectName(fpn: String) = reportInfoByFriendlyProjectNameMap.get(fpn).map(Set(_)).getOrElse(rootProjectReports(fpn.takeWhile(_ != ':')))
+    val reportInfos = team.projectNames.flatMap(reportInfoByFriendlyProjectName)
     def submap[T](m: Map[String, T]) = reportInfos.toSeq.flatMap(ri => m.get(ri.fullId).map(ri.fullId -> _) ).toMap
     Some(Result(
       bareFlatReports = submap(r.bareFlatReports),
