@@ -67,6 +67,8 @@ libraryDependencies ++= Seq(
   "com.mohiva" %% "play-silhouette-testkit" % "3.0.4" % "test"
 )
 
+libraryDependencies += "org.webjars.bower" % "jquery.scrollTo" % "2.1.2"
+
 libraryDependencies += "net.codingwell" %% "scala-guice" % "4.0.0"
 
 libraryDependencies += "net.ceedubs" %% "ficus" % "1.1.2"

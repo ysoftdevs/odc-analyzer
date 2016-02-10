@@ -26,13 +26,6 @@
 .badge a{
     color: yellow;
 }
-h2:before, h3:before, h4:before, h5:before, h6:before {
-    display: block;
-    content: " ";
-    margin-top: -50px;
-    height: 50px;
-    visibility: hidden;
-}
 #project-selector{
     float: left;
     padding: 5px;

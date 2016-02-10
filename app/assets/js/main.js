@@ -57,3 +57,10 @@ function toggleClassified(el){
         }
     });
 }
+
+function updatePosition(){
+    // document.getElementById(…) is used over $('#'+…) in order to reduce attack surface: It does not look like a good idea to pass untrusted input to “omnipotent” `$` function.
+    $.scrollTo(document.getElementById(location.hash.substr(1)), {offset: -$('#navbar').height()});
+}
+$(window).bind('hashchange', function(e) { updatePosition(); });
+$(window).bind('load', function(e) { updatePosition(); });
