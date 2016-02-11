@@ -3,5 +3,5 @@ package services
 import scala.concurrent.Future
 
 trait CredentialsVerificationService {
-  def verifyCredentials(username: String, password: String): Future[Boolean]
+  def verifyCredentials(username: String, password: String): Future[Either[String, String]]
 }

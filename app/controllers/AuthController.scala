@@ -2,13 +2,13 @@ package controllers
 
 import javax.inject.Inject
 
-import _root_.services.CredentialsVerificationService
+import _root_.services.{UserService, CredentialsVerificationService}
 import com.mohiva.play.silhouette.api._
 import com.mohiva.play.silhouette.api.util.Clock
 import com.mohiva.play.silhouette.impl.authenticators.CookieAuthenticator
 import models.User
 import play.api.data.Form
-import play.api.data.Forms._
+import play.api.data.Forms.{email =>_, _}
 import play.api.i18n.{Messages, MessagesApi}
 import play.api.libs.concurrent.Execution.Implicits._
 
@@ -20,7 +20,8 @@ class AuthController @Inject() (
   val messagesApi: MessagesApi,
   val env: Environment[User, CookieAuthenticator],
   clock: Clock,
-  credentialsVerificationService: CredentialsVerificationService
+  credentialsVerificationService: CredentialsVerificationService,
+  userService: UserService
 ) extends AuthenticatedController {
 
   val signInForm = Form(mapping(
@@ -41,16 +42,19 @@ class AuthController @Inject() (
       formWithErrors => Future.successful(BadRequest(views.html.auth.signIn(formWithErrors/*, socialProviderRegistry*/))),
       loginRequest => {
         credentialsVerificationService.verifyCredentials(loginRequest.username, loginRequest.password).flatMap{
-          case true =>
-            val loginInfo: LoginInfo = LoginInfo(providerID = "credentials-verification", providerKey = loginRequest.username)
-            val user: User = User(username = loginRequest.username)
-            env.authenticatorService.create(loginInfo) flatMap { authenticator =>
-              env.eventBus.publish(LoginEvent(user, request, implicitly[Messages]))
-              env.authenticatorService.init(authenticator).flatMap(cookie =>
+          case Right(email) =>
+            val loginInfo: LoginInfo = LoginInfo(providerID = "credentials-verification", providerKey = email)
+            for{
+              userOption <- userService.retrieve(loginInfo)
+              user = userOption.getOrElse(???)
+              authenticator <- env.authenticatorService.create(loginInfo)
+              _ = env.eventBus.publish(LoginEvent(user, request, implicitly[Messages]))
+              res <- env.authenticatorService.init(authenticator).flatMap(cookie =>
                 env.authenticatorService.embed(cookie.copy(secure = request.secure), Redirect(routes.Application.index(Map())))
               )
-            }
-          case false => Future.successful(Redirect(routes.AuthController.signIn()).flashing("error" -> Messages("invalid.credentials")))
+            } yield res
+          case Left(errorMessage) =>
+            Future.successful(Redirect(routes.AuthController.signIn()).flashing("error" -> Messages("invalid.credentials")))
         }
       }
     )

@@ -8,6 +8,6 @@ class AllowAllCredentialsVerificationService(app: play.api.Application) extends 
     sys.error("allow-all can be used in dev mode only")
   }
 
-  override def verifyCredentials(username: String, password: String): Future[Boolean] = Future.successful(true)
+  override def verifyCredentials(username: String, password: String): Future[Either[String, String]] = Future.successful(Right(username))
 
 }
