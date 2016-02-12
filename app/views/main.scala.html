@@ -74,9 +74,9 @@
             </ul>
             <ul class="nav navbar-nav navbar-right">
                 <li>@header.identity.fold{
-                    <a class="btn btn-default" href="@routes.AuthController.signIn()">Log in</a>
+                    <a class="btn btn-default" href="@routes.AuthController.signIn(header.path+"?"+header.rawQueryString)">Log in</a>
                 }{ user =>
-                    @form(routes.AuthController.signOut()){
+                    @form(routes.AuthController.signOut(header.path+"?"+header.rawQueryString)){
                         @CSRF.formField
                         <button type="submit" class="btn btn-warning">Logout @user.username</button>
                     }

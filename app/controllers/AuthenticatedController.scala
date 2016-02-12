@@ -20,7 +20,9 @@ trait AuthenticatedControllerLowPriorityImplicits[T, C]{
 abstract class AuthenticatedController extends Silhouette[User, CookieAuthenticator] with AuthenticatedControllerLowPriorityImplicits[User, CookieAuthenticator]{
 
 
-  override protected def onNotAuthenticated(request: RequestHeader): Option[Future[Result]] = Some(Future.successful(Redirect(routes.AuthController.signIn())))
+  override protected def onNotAuthenticated(request: RequestHeader): Option[Future[Result]] = Some(Future.successful(Redirect(
+    routes.AuthController.signIn(request.path+"?"+request.rawQueryString)
+  )))
 
   object ReadAction extends SecuredActionBuilder with Results {
 

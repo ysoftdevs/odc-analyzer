@@ -30,16 +30,16 @@ class AuthController @Inject() (
     "rememberMe" -> boolean
   )(LoginRequest.apply)(LoginRequest.unapply))
 
-  def signIn = UserAwareAction { implicit request =>
+  def signIn(callback: String) = UserAwareAction { implicit request =>
     request.identity match {
-      case Some(user) => Redirect(routes.Application.index(Map()))
-      case None => Ok(views.html.auth.signIn(signInForm/*, socialProviderRegistry*/))
+      case Some(user) => generateCallback(callback)
+      case None => Ok(views.html.auth.signIn(signInForm, callback/*, socialProviderRegistry*/))
     }
   }
 
-  def authenticate() = UserAwareAction.async { implicit request  =>
+  def authenticate(callback: String) = UserAwareAction.async { implicit request  =>
     signInForm.bindFromRequest().fold(
-      formWithErrors => Future.successful(BadRequest(views.html.auth.signIn(formWithErrors/*, socialProviderRegistry*/))),
+      formWithErrors => Future.successful(BadRequest(views.html.auth.signIn(formWithErrors, callback/*, socialProviderRegistry*/))),
       loginRequest => {
         credentialsVerificationService.verifyCredentials(loginRequest.username, loginRequest.password).flatMap{
           case Right(email) =>
@@ -50,18 +50,22 @@ class AuthController @Inject() (
               authenticator <- env.authenticatorService.create(loginInfo)
               _ = env.eventBus.publish(LoginEvent(user, request, implicitly[Messages]))
               res <- env.authenticatorService.init(authenticator).flatMap(cookie =>
-                env.authenticatorService.embed(cookie.copy(secure = request.secure), Redirect(routes.Application.index(Map())))
+                env.authenticatorService.embed(cookie.copy(secure = request.secure), generateCallback(callback))
               )
             } yield res
           case Left(errorMessage) =>
-            Future.successful(Redirect(routes.AuthController.signIn()).flashing("error" -> Messages("invalid.credentials")))
+            Future.successful(Redirect(routes.AuthController.signIn(callback)).flashing("error" -> Messages("invalid.credentials")))
         }
       }
     )
   }
 
-  def signOut = SecuredAction.async { implicit request =>
-    val result = Redirect(routes.Application.index(Map()))
+  private def generateCallback(callback: String) = {
+    if (callback startsWith "/") Redirect(callback) else Redirect(routes.Application.index(Map()))
+  }
+
+  def signOut(callback: String) = SecuredAction.async { implicit request =>
+    val result = generateCallback(callback)
     env.eventBus.publish(LogoutEvent(request.identity, request, request2Messages))
     env.authenticatorService.discard(request.authenticator, result)
   }

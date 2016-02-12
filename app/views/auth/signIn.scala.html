@@ -1,8 +1,8 @@
 @import helper._
-@(loginForm: Form[LoginRequest]/*, socialProviderRegistry: SocialProviderRegistry*/)(implicit requestHeader: DefaultRequest, messages: Messages)
+@(loginForm: Form[LoginRequest], callback: String/*, socialProviderRegistry: SocialProviderRegistry*/)(implicit requestHeader: DefaultRequest, messages: Messages)
 
 @main("Log in"){
-    @form(routes.AuthController.authenticate()){
+    @form(routes.AuthController.authenticate(callback)){
         @CSRF.formField
         @inputText(loginForm("username"))
         @inputPassword(loginForm("password"))
