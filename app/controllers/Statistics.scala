@@ -8,7 +8,7 @@ import models.{Library, LibraryTag}
 import org.joda.time.DateTime
 import play.api.i18n.MessagesApi
 import play.twirl.api.Txt
-import services.{LibrariesService, LibraryTagAssignmentsService, OdcService, TagsService}
+import services._
 import views.html.DefaultRequest
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -17,6 +17,8 @@ object Statistics{
   case class LibDepStatistics(libraries: Set[(Int, Library)], dependencies: Set[GroupedDependency]){
     def vulnerableRatio = vulnerableDependencies.size.toDouble / dependencies.size.toDouble
     lazy val vulnerabilities: Set[Vulnerability] = dependencies.flatMap(_.vulnerabilities)
+    lazy val vulnerabilitiesByName = vulnerabilities.map(v => v.name -> v).toMap
+    lazy val vulnerabilityNames = vulnerabilities.map(_.name)
     lazy val vulnerabilitiesToDependencies: Map[Vulnerability, Set[GroupedDependency]] = vulnerableDependencies.flatMap(dep =>
       dep.vulnerabilities.map(vuln => (vuln, dep))
     ).groupBy(_._1).mapValues(_.map(_._2)).map(identity)
@@ -50,6 +52,8 @@ class Statistics @Inject() (
   libraryTagAssignmentsService: LibraryTagAssignmentsService,
   @Named("missing-GAV-exclusions") missingGAVExclusions: MissingGavExclusions,
   projects: Projects,
+  vulnerabilityNotificationService: VulnerabilityNotificationService,
+  issueTrackerServiceOption: Option[IssueTrackerService],
   val env: AuthEnv
 )(implicit val messagesApi: MessagesApi, executionContext: ExecutionContext) extends AuthenticatedController {
 
@@ -167,14 +171,19 @@ class Statistics @Inject() (
           name = name,
           projectsWithSelection = selection.projectsWithSelection
         )))){ case (vuln, vulnerableDependencies) =>
-          for(
+          for {
             plainLibs <- librariesService.byPlainLibraryIdentifiers(vulnerableDependencies.flatMap(_.plainLibraryIdentifiers)).map(_.keySet)
-          ) yield Ok(views.html.statistics.vulnerability(
+            ticketOption <- vulnerabilityNotificationService.issueTrackerExport.ticketForVulnerability(name)
+          } yield Ok(views.html.statistics.vulnerability(
             vulnerability = vuln,
             affectedProjects = vulnerableDependencies.flatMap(dep => dep.projects.map(proj => (proj, dep))).groupBy(_._1).mapValues(_.map(_._2)),
             vulnerableDependencies = vulnerableDependencies,
             affectedLibraries = plainLibs,
-            projectsWithSelection = selection.projectsWithSelection
+            projectsWithSelection = selection.projectsWithSelection,
+            issueOption = for{
+              ticket <- ticketOption
+              issueTrackerService <- issueTrackerServiceOption
+            } yield ticket -> issueTrackerService.ticketLink(ticket)
           ))
         }
 

@@ -2,7 +2,6 @@ package models
 
 import models.profile.MappedJdbcType
 import models.profile.api._
-import slick.lifted.Tag
 
 abstract sealed class LibraryType(val name: String){
   override final def toString: String = name

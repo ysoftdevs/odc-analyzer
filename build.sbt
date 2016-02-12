@@ -75,6 +75,8 @@ libraryDependencies += "net.ceedubs" %% "ficus" % "1.1.2"
 
 libraryDependencies += "org.owasp" % "dependency-check-core" % "1.3.0"
 
+libraryDependencies += "com.typesafe.play" %% "play-mailer" % "3.0.1"
+
 routesImport += "binders.QueryBinders._"
 
 // Uncomment to use Akka

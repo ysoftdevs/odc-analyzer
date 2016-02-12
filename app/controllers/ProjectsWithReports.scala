@@ -22,6 +22,8 @@ final case class ReportInfo(
 
   override def hashCode(): Int = 517+fullId.hashCode
 
+  def bare = copy(subprojectNameOption = None, fullId = fullId.takeWhile(_ != '/'))
+
 }
 
 object ProjectsWithReports{
@@ -38,21 +40,27 @@ class ProjectsWithReports (val projects: Projects, val reports: Set[String]) {
 
   val reportIdToReportInfo = {
     val reportsMap = reports.map{ unfriendlyName =>
-      val (baseName, theRest) = unfriendlyName.span(_ != '/')
-      val removeLeadingMess = RestMessBeginRegexp.replaceAllIn(_: String, "")
-      val removeTrailingMess = RestMessEndRegexp.replaceAllIn(_: String, "")
-      val removeMess = removeLeadingMess andThen removeTrailingMess
-      val subProjectOption = Some(removeMess(theRest)).filter(_ != "")
-      unfriendlyName -> ReportInfo(
-        projectId = baseName,
-        fullId = unfriendlyName,
-        projectName = projects.projectMap(baseName),
-        subprojectNameOption = subProjectOption.orElse(Some("root project"))
-      )
+      unfriendlyName -> parseUnfriendlyName(unfriendlyName)
     }.toMap
     reportsMap ++ reportsMap.values.map(r => r.projectId -> ReportInfo(projectId = r.projectId, fullId = r.projectId, subprojectNameOption = None, projectName = r.projectName))
   }
 
+  def parseUnfriendlyName(unfriendlyName: String): ReportInfo = {
+    val (baseName, theRest) = unfriendlyName.span(_ != '/')
+    val removeLeadingMess = RestMessBeginRegexp.replaceAllIn(_: String, "")
+    val removeTrailingMess = RestMessEndRegexp.replaceAllIn(_: String, "")
+    val removeMess = removeLeadingMess andThen removeTrailingMess
+    val subProjectOption = Some(removeMess(theRest)).filter(_ != "")
+    ReportInfo(
+      projectId = baseName,
+      fullId = unfriendlyName,
+      projectName = projects.projectMap(baseName),
+      subprojectNameOption = subProjectOption.orElse(Some("root project"))
+    )
+  }
+
   val ungroupedReportsInfo = reportIdToReportInfo.values.toSet
+
+  def sortedReportsInfo = ungroupedReportsInfo.toSeq.sortBy(p => p.projectName -> p.projectId -> p.subprojectNameOption)
 
 }

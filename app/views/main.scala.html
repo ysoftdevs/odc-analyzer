@@ -49,6 +49,7 @@
                 <li><a href="@routes.Statistics.basic(None)">Tag statistics</a></li>
                 <li><a href="@routes.Statistics.vulnerabilities(None, None)">Vulnerabilities</a></li>
                 <li><a href="@routes.Statistics.vulnerableLibraries(None)">Vulnerable libraries</a></li>
+                <li><a href="@routes.Notifications.listProjects()">Notifications</a></li>
                 <li>
                     @for((ProjectsWithSelection(filter, projects, teams), link) <- projectsOption){
                         <div id="project-selector">
@@ -62,7 +63,7 @@
                                     @for(team <- teams){
                                         <li><a href="@link(Some("team:"+team.id))" title="team leader: @team.leader">@team.name</a></li>
                                     }
-                                    @for(report <- projects.ungroupedReportsInfo.toSeq.sortBy(p => p.projectName -> p.projectId -> p.subprojectNameOption)){
+                                    @for(report <- projects.sortedReportsInfo){
                                         <li@if(report.subprojectNameOption.isEmpty){ class="base-project"}><a href="@link(Some("project:"+report.fullId))">@friendlyProjectName(report)</a></li>
                                     }
                                 </ul>

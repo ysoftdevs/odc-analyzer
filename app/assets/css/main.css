@@ -114,3 +114,7 @@ h3.library-identification{
     border-left: 5px solid #00c7ff;
     padding-left: 10px;
 }
+
+.projects-watching .watched{
+    font-weight: bold;
+}

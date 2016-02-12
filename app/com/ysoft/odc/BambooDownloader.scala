@@ -61,19 +61,8 @@ final case class ArtifactDirectory(name: String, items: Map[String, ArtifactItem
 }
 final case class FlatArtifactDirectory(name: String, items: Seq[(String, String)]) extends FlatArtifactItem{}
 
-trait BambooAuthentication{
-  def addAuth(request: WSRequest): WSRequest
-}
 
-class SessionIdBambooAuthentication(sessionId: String) extends BambooAuthentication{
-  override def addAuth(request: WSRequest): WSRequest = request.withHeaders("Cookie" -> s"JSESSIONID=${sessionId.takeWhile(_.isLetterOrDigit)}")
-}
-
-class CredentialsBambooAuthentication(user: String, password: String) extends BambooAuthentication{
-  override def addAuth(request: WSRequest): WSRequest = request.withQueryString("os_authType" -> "basic").withAuth(user, password, WSAuthScheme.BASIC)
-}
-
-final class BambooDownloader @Inject() (@Named("bamboo-server-url") val server: String, auth: BambooAuthentication)(implicit executionContext: ExecutionContext, wSClient: WSClient) extends Downloader {
+final class BambooDownloader @Inject()(@Named("bamboo-server-url") val server: String, @Named("bamboo-authentication") auth: AtlassianAuthentication)(implicit executionContext: ExecutionContext, wSClient: WSClient) extends Downloader {
 
   private object ArtifactKeys{
     val BuildLog = "Build log"

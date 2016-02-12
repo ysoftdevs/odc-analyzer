@@ -3,14 +3,19 @@ package modules
 import java.io._
 import java.net.URLEncoder
 import java.nio.file.{Files, Path, Paths}
+import java.util.concurrent.Executors
 
 import akka.util.ClassLoaderObjectInputStream
 import com.ysoft.odc._
 import controllers.MissingGavExclusions
+import net.ceedubs.ficus.Ficus._
+import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 import play.api.cache.CacheApi
 import play.api.inject.{Binding, Module}
 import play.api.{Configuration, Environment, Logger}
+import services.IssueTrackerService
 
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
@@ -22,6 +27,7 @@ import scala.util.{Failure, Success, Try}
   * * Thread safety
   * * fsync: https://stackoverflow.com/questions/4072878/i-o-concept-flush-vs-sync
   * * probably not removing files that are not used for a long time
+  *
   * @param path
   */
 class FileCacheApi(path: Path) extends CacheApi{
@@ -79,7 +85,10 @@ class FileCacheApi(path: Path) extends CacheApi{
 
 
 class ConfigModule extends Module {
-  
+
+  private val bambooAuthentication = bind[AtlassianAuthentication].qualifiedWith("bamboo-authentication")
+  //private val jiraAuthentication = bind[AtlassianAuthentication].qualifiedWith("jira-authentication")
+
   override def bindings(environment: Environment, configuration: Configuration): Seq[Binding[_]] = Seq(
     bind[String].qualifiedWith("bamboo-server-url").toInstance(configuration.getString("yssdc.bamboo.url").getOrElse(sys.error("Key yssdc.bamboo.url is not set"))),
     configuration.getString("yssdc.reports.provider") match{
@@ -89,11 +98,13 @@ class ConfigModule extends Module {
     },
     bind[MissingGavExclusions].qualifiedWith("missing-GAV-exclusions").toInstance(MissingGavExclusions(
       configuration.getStringSeq("yssdc.exclusions.missingGAV.bySha1").getOrElse(Seq()).toSet.map(Exclusion))
-    )
+    ),
+    bind[ExecutionContext].qualifiedWith("email-sending").toInstance(ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor()))
   ) ++
+    configuration.underlying.getAs[Absolutizer]("app").map(a => bind[Absolutizer].toInstance(a)) ++
     configuration.getString("play.cache.path").map(cachePath => bind[CacheApi].toInstance(new FileCacheApi(Paths.get(cachePath)))) ++
-    configuration.getString("yssdc.reports.bamboo.sessionId").map{s => bind[BambooAuthentication].toInstance(new SessionIdBambooAuthentication(s))} ++
-    configuration.getString("yssdc.reports.bamboo.user").map{u => bind[BambooAuthentication].toInstance(new CredentialsBambooAuthentication(u, configuration.getString("yssdc.reports.bamboo.password").get))} ++
+    configuration.getString("yssdc.reports.bamboo.sessionId").map{s => bambooAuthentication.toInstance(new SessionIdAtlassianAuthentication(s))} ++
+    configuration.getString("yssdc.reports.bamboo.user").map{u => bambooAuthentication.toInstance(new CredentialsAtlassianAuthentication(u, configuration.getString("yssdc.reports.bamboo.password").get))} ++
     configuration.getString("yssdc.reports.path").map{s => bind[String].qualifiedWith("reports-path").toInstance(s)}
 
 }

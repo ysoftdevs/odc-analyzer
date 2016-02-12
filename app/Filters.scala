@@ -9,7 +9,7 @@ import play.twirl.api.Txt
 
 import scala.concurrent.Future
 
-class HostnameValidatingAction(allowedHostnames: Set[String], allowAllIps: Boolean, next: EssentialAction) extends EssentialAction with Results{
+class HostValidatingAction(allowedHosts: Set[String], allowAllIps: Boolean, next: EssentialAction) extends EssentialAction with Results{
 
   private val IpAddressPatternComponent = // comes from http://www.mkyong.com/regular-expressions/how-to-validate-ip-address-with-regular-expression/
     "([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\." +
@@ -20,17 +20,17 @@ class HostnameValidatingAction(allowedHostnames: Set[String], allowAllIps: Boole
   private val IpAddress = ("""^"""+IpAddressPatternComponent+"""((:[0-9]+)?)$""").r
 
   override def apply(request: RequestHeader): Iteratee[Array[Byte], Result] = {
-    if( (allowedHostnames contains request.host) || (allowAllIps && IpAddress.findFirstMatchIn(request.host).isDefined )) next.apply(request)
+    if( (allowedHosts contains request.host) || (allowAllIps && IpAddress.findFirstMatchIn(request.host).isDefined )) next.apply(request)
     else Iteratee.flatten(Future.successful(Done(Unauthorized(Txt(s"not allowed for host ${request.host}")))))
   }
 
 }
 
 
-class HostnameFilter(allowedHostnames: Set[String], allowAllIps: Boolean = false) extends EssentialFilter {
-  override def apply(next: EssentialAction): EssentialAction = new HostnameValidatingAction(allowedHostnames, allowAllIps, next)
+class HostFilter(allowedHosts: Set[String], allowAllIps: Boolean = false) extends EssentialFilter {
+  override def apply(next: EssentialAction): EssentialAction = new HostValidatingAction(allowedHosts, allowAllIps, next)
 }
 
 class Filters @Inject() (csrfFilter: CSRFFilter, configuration: Configuration) extends HttpFilters {
-  def filters = Seq(csrfFilter, new HostnameFilter(configuration.getString("app.hostname").toSet, allowAllIps = true))
+  def filters = Seq(csrfFilter, new HostFilter(configuration.getString("app.host").toSet, allowAllIps = true))
 }

@@ -75,8 +75,8 @@ private final case class BadFilter(pattern: String) extends Filter{
 
 object DependencyCheckReportsParser{
   final case class ResultWithSelection(result: Result, projectsWithSelection: ProjectsWithSelection)
-  final case class Result(bareFlatReports: Map[String, Analysis], bareFailedAnalysises: Map[String, Throwable], projects: Projects){
-    lazy val projectsReportInfo = new ProjectsWithReports(projects, bareFlatReports.keySet ++ bareFailedAnalysises.keySet)
+  final case class Result(bareFlatReports: Map[String, Analysis], bareFailedAnalysises: Map[String, Throwable], projects: Projects /*TODO: maybe rename to rootProjects*/){
+    lazy val projectsReportInfo = new ProjectsWithReports(projects, bareFlatReports.keySet ++ bareFailedAnalysises.keySet) // TODO: consider renaming to projectsWithReports
     lazy val flatReports: Map[ReportInfo, Analysis] = bareFlatReports.map{case (k, v) => projectsReportInfo.reportIdToReportInfo(k) -> v}
     lazy val failedAnalysises: Map[ReportInfo, Throwable] = bareFailedAnalysises.map{case (k, v) => projectsReportInfo.reportIdToReportInfo(k) -> v}
     lazy val allDependencies = flatReports.toSeq.flatMap(r => r._2.dependencies.map(_ -> r._1))

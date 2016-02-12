@@ -1,0 +1,32 @@
+@(projects: Seq[ReportInfo], watchedProjects: Set[String])(implicit req: DefaultRequest)
+@import helper._
+@button(action: Call)(label: String) = {
+    @form(action, 'style -> "display: inline-block"){
+        @CSRF.formField
+            <button type="submit" class="btn">@label</button>
+    }
+}
+@main("Watch projects"){
+    <ul class="projects-watching">
+        @for(
+            project <- projects;
+            fullId = project.fullId;
+            isWatchedThroughParent = project.subprojectNameOption.isDefined && (watchedProjects contains project.projectId);
+            isWatchedDirectly = watchedProjects contains fullId;
+            isWatched = isWatchedDirectly || isWatchedThroughParent
+        ){
+            <li @if(isWatched){class="watched"}>
+                @friendlyProjectName(project)
+                @if(isWatchedThroughParent){
+                    <button disabled class="btn">unwatch</button>
+                    <span class="badge">watched through parent</span>
+                }else{
+                    @if(isWatchedDirectly){
+                        @button(routes.Notifications.unwatch(fullId))("unwatch")
+                    }else{
+                        @button(routes.Notifications.watch(fullId))("watch")
+                    }
+                }
+        }
+    </ul>
+}
