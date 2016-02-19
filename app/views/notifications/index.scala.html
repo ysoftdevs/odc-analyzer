@@ -64,7 +64,7 @@
 @main("Watch projects", headExtension = headExtension){
     <ul class="projects-watching">
         @for(
-            (projectGroup, projectsInGroup) <- projects.groupBy(_.bare)
+            (projectGroup, projectsInGroup) <- projects.groupBy(_.bare).toIndexedSeq.sortBy(x => friendlyProjectNameString(x._1).toLowerCase)
         ){
             @projectListItem(projectGroup, projectsInGroup) {
                 <ul>
