@@ -36,7 +36,7 @@ final class DependencyCheckReportsProcessor @Inject() (
 
   @deprecated("use HTML output instead", "SNAPSHOT") private val showDependencies: (Seq[GroupedDependency]) => Seq[String] = {
     _.map { s =>
-      s.dependencies.map { case (dep, projects) => s"${dep.fileName} @ ${projects.toSeq.sorted.map(friendlyProjectName).mkString(", ")}" }.mkString(", ") + " " + s.hashes
+      s.dependencies.map { case (dep, projects) => s"${dep.fileName} @ ${projects.toSeq.sorted.map(friendlyProjectNameString).mkString(", ")}" }.mkString(", ") + " " + s.hashes
     }
   }
 

@@ -24,7 +24,7 @@ class EmailExportService(from: String, nobodyInterestedContact: String, mailerCl
   def mailForVulnerabilityProjectsChange(vuln: Vulnerability, emailMessageId: EmailMessageId, diff: SetDiff[String], projects: ProjectsWithReports) = {
     def showProjects(s: Set[String]) = s.map(p =>
       "* " + (try{
-        friendlyProjectName(projects.parseUnfriendlyName(p))
+        friendlyProjectNameString(projects.parseUnfriendlyName(p))
       }catch{ // It might fail on project that has been removed
         case e: NoSuchElementException => s"unknown project $p"
       })

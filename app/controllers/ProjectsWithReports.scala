@@ -24,6 +24,9 @@ final case class ReportInfo(
 
   def bare = copy(subprojectNameOption = None, fullId = fullId.takeWhile(_ != '/'))
 
+  def isBare = subprojectNameOption.isEmpty
+  def isNotBare = !isBare
+
 }
 
 object ProjectsWithReports{

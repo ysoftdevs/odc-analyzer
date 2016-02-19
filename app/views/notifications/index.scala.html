@@ -3,30 +3,79 @@
 @button(action: Call)(label: String) = {
     @form(action, 'style -> "display: inline-block"){
         @CSRF.formField
-            <button type="submit" class="btn">@label</button>
+            <button type="submit" class="btn btn-link">@label</button>
     }
 }
-@main("Watch projects"){
-    <ul class="projects-watching">
-        @for(
-            project <- projects;
-            fullId = project.fullId;
-            isWatchedThroughParent = project.subprojectNameOption.isDefined && (watchedProjects contains project.projectId);
-            isWatchedDirectly = watchedProjects contains fullId;
-            isWatched = isWatchedDirectly || isWatchedThroughParent
-        ){
-            <li @if(isWatched){class="watched"}>
-                @friendlyProjectName(project)
-                @if(isWatchedThroughParent){
-                    <button disabled class="btn">unwatch</button>
-                    <span class="badge">watched through parent</span>
+@toggleButton(id: String, buttonClass: String, labelClass: String) = {
+    <button type="button" onclick="$($(this).attr('data-target')).toggleClass('collapsed');" data-target="#@id" class="btn btn-link @buttonClass"><span class="glyphicon @labelClass"></span></button>
+}
+@projectListItem(project: ReportInfo, subprojects: Seq[ReportInfo])(children: Html) = {
+    @for(
+        isWatchedDirectly <- Some(watchedProjects contains project.fullId);  // hack allowing one to define a variable
+        isWatchedByParent = project.isNotBare && (watchedProjects contains project.bare.fullId);
+        watchedChildCount = subprojects.count(p => watchedProjects contains p.fullId);
+        hasWatchedChild = watchedChildCount > 0;
+        hasButtons = !subprojects.isEmpty;
+        classes = Seq(
+            if(isWatchedDirectly) Some("watched") else None,
+            if(hasWatchedChild && !isWatchedDirectly) None else Some("collapsed"),
+            if(hasButtons) Some("with-buttons") else None
+        ).flatten;
+        id = s"project-${urlEncode(project.fullId)}"
+    ){
+        <li id="@id" @if(!classes.isEmpty){class="@classes.mkString(" ")}">
+            @if(hasButtons) {
+                <span class="toggle-buttons">
+                    @toggleButton(id, buttonClass = "watching-btn-expand", labelClass = "glyphicon-plus-sign")
+                    @toggleButton(id, buttonClass = "watching-btn-collapse", labelClass = "glyphicon-minus-sign")
+                </span>
+            }
+            @friendlyProjectName(project)
+            @if(project.isBare){
+                @if(isWatchedDirectly){
+                    <span class="badge">You watch this project with all subprojects.</span>
                 }else{
-                    @if(isWatchedDirectly){
-                        @button(routes.Notifications.unwatch(fullId))("unwatch")
-                    }else{
-                        @button(routes.Notifications.watch(fullId))("watch")
+                    @if(hasWatchedChild){
+                        <span class="badge">You watch @watchedChildCount @if(watchedChildCount==1){subproject}else{subprojects}.</span>
                     }
                 }
+            }else{@* non-bare *@
+                @if(isWatchedDirectly && !isWatchedByParent){
+                    <span class="badge">You explicitly watch this project.</span>
+                }
+            }
+
+            @if(isWatchedByParent) {
+                <span class="badge">You watch the parent project.</span>
+                <button disabled class="btn btn-link">unwatch</button>
+            }else{
+                @if(isWatchedDirectly){
+                    @button(routes.Notifications.unwatch(project.fullId))("unwatch")
+                }else{
+                    @button(routes.Notifications.watch(project.fullId))("watch")
+                }
+            }
+            @children
+        </li>
+    }
+}
+@headExtension = {
+}
+@main("Watch projects", headExtension = headExtension){
+    <ul class="projects-watching">
+        @for(
+            (projectGroup, projectsInGroup) <- projects.groupBy(_.bare)
+        ){
+            @projectListItem(projectGroup, projectsInGroup) {
+                <ul>
+                    @for(
+                        project <- projectsInGroup;
+                        if project.isNotBare
+                    ) {
+                        @projectListItem(project, Seq()){ }
+                    }
+                </ul>
+            }
         }
     </ul>
 }

@@ -115,6 +115,35 @@ h3.library-identification{
     padding-left: 10px;
 }
 
+.projects-watching li.with-buttons{
+    list-style-type: none;
+}
 .projects-watching .watched{
     font-weight: bold;
+}
+
+.projects-watching .collapsed ul{
+    display: none;
+}
+.projects-watching .watching-btn-expand {
+    display: none;
+}
+.projects-watching .collapsed .watching-btn-expand{
+    display: inline;
+}
+.projects-watching .collapsed .watching-btn-collapse{
+    display: none;
+}
+.projects-watching li{
+    position: relative;
+}
+
+.projects-watching .toggle-buttons button{
+    margin: 0;
+    padding: 0;
+}
+.projects-watching .toggle-buttons{
+    position: absolute;
+    top: 2px;
+    left: -19px;
 }

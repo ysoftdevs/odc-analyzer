@@ -1,0 +1,5 @@
+@(reportInfo: ReportInfo)
+@reportInfo.projectName@reportInfo.subprojectNameOption match {
+    case None => { <i>(with all subprojects)</i>}
+    case Some(subproject) => {: @subproject}
+}

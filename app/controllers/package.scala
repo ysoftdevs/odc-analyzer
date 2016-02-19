@@ -32,6 +32,6 @@ package object controllers {
     val subProjectOption = Some(removeMess(theRest)).filter(_ != "")
     subProjectOption.fold(baseName)(baseName+"/"+_)
   }*/
-  def friendlyProjectName(reportInfo: ReportInfo) = reportInfo.subprojectNameOption.fold(reportInfo.projectName)(reportInfo.projectName+": "+_)
+  def friendlyProjectNameString(reportInfo: ReportInfo) = reportInfo.subprojectNameOption.fold(reportInfo.projectName)(reportInfo.projectName+": "+_)
 
 }

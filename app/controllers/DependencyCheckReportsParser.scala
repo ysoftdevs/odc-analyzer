@@ -22,7 +22,7 @@ sealed trait Filter{
 private final case class ProjectFilter(project: ReportInfo) extends Filter{
   override def filters: Boolean = true
   override def descriptionHtml: Html = views.html.filters.project(project)
-  override def descriptionText: String = s"project ${friendlyProjectName(project)}"
+  override def descriptionText: String = s"project ${friendlyProjectNameString(project)}"
   override def subReports(r: Result): Option[Result] = {
     @inline def reportInfo = project
     def f[T](m: Map[ReportInfo, T]): Map[String, T] = (
@@ -39,7 +39,7 @@ private final case class TeamFilter(team: Team) extends Filter{
   override def filters: Boolean = true
   override def subReports(r: Result): Option[Result] = {
     val Wildcard = """^(.*): \*$""".r
-    val reportInfoByFriendlyProjectNameMap = r.projectsReportInfo.ungroupedReportsInfo.map(ri => friendlyProjectName(ri) -> ri).toSeq.groupBy(_._1).mapValues{
+    val reportInfoByFriendlyProjectNameMap = r.projectsReportInfo.ungroupedReportsInfo.map(ri => friendlyProjectNameString(ri) -> ri).toSeq.groupBy(_._1).mapValues{
       case Seq((_, ri)) => ri
       case other => sys.error("some duplicate value: "+other)
     }.map(identity)
