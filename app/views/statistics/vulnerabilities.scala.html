@@ -9,7 +9,7 @@
     projectsOption = Some((projectsWithSelection, x => routes.Statistics.vulnerabilities(x, tagOption.map(_._1))))
 ){
     We have @statistics.vulnerabilitiesToDependencies.size vulnerabilities
-    of @statistics.vulnerabilitiesToDependencies.flatMap(_._2).toSet.size dependencies (@statistics.vulnerabilitiesToDependencies.flatMap(_._2.flatMap(_.plainLibraryIdentifiers)).toSet.size libaries).
+    of @statistics.vulnerabilitiesToDependencies.flatMap(_._2).toSet.size dependencies (@statistics.vulnerabilitiesToDependencies.flatMap(_._2.flatMap(_.plainLibraryIdentifiers)).toSet.size libraries).
     @if(!projectsWithSelection.isProjectSpecified){
         They are affecting @statistics.vulnerabilitiesToDependencies.flatMap(_._2.flatMap(_.projects)).toSet.size projects.
     }else{
