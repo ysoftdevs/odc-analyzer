@@ -8,7 +8,7 @@ import _root_.org.owasp.dependencycheck.dependency.VulnerableSoftware
 import _root_.org.owasp.dependencycheck.utils.{DependencyVersion, DependencyVersionUtil, Settings}
 import com.github.nscala_time.time.Imports._
 import com.google.inject.Inject
-import models.odc.OdcProperty
+import models.odc.{Vulnerabilities, OdcProperty}
 import models.odc.tables._
 import play.api.db.slick.{DatabaseConfigProvider, HasDatabaseConfigProvider}
 import play.db.NamedDatabase
@@ -29,20 +29,27 @@ class OdcService @Inject()(@NamedDatabase("odc") protected val dbConfigProvider:
 
   def getReferences(id: Int): Future[Seq[com.ysoft.odc.Reference]] = db.run(references.filter(_.cveId === id).map(_.base).result)
 
-  def getVulnerabilityDetails(id: Int): Future[Option[com.ysoft.odc.Vulnerability]] = {
-    for {
-      bareVulnOption <- db.run(vulnerabilities.filter(_.id === id).map(_.base).result).map(_.headOption)
-      vulnerableSoftware <- getVulnerableSoftware(id)
-      references <- getReferences(id)
-    } yield bareVulnOption.map{bareVuln =>
-      com.ysoft.odc.Vulnerability(
-        name = bareVuln.cve,
-        cweOption = bareVuln.cweOption,
-        cvss = bareVuln.cvss,
-        description = bareVuln.description,
-        vulnerableSoftware = vulnerableSoftware,
-        references = references
-      )
+  def getVulnerabilityDetails(id: Int): Future[Option[com.ysoft.odc.Vulnerability]] = getVulnerabilityDetails(_.id === id)
+
+  def getVulnerabilityDetails(name: String): Future[Option[com.ysoft.odc.Vulnerability]] = getVulnerabilityDetails(_.cve === name)
+
+  def getVulnerabilityDetails(cond: Vulnerabilities => Rep[Boolean]): Future[Option[com.ysoft.odc.Vulnerability]] = {
+    db.run(vulnerabilities.filter(cond).result).map(_.headOption) flatMap { bareVulnOption =>
+      bareVulnOption.fold[Future[Option[com.ysoft.odc.Vulnerability]]](Future.successful(None)) { case (id, bareVuln) =>
+        for {
+          vulnerableSoftware <- getVulnerableSoftware(id)
+          references <- getReferences(id)
+        } yield Some(
+          com.ysoft.odc.Vulnerability(
+            name = bareVuln.cve,
+            cweOption = bareVuln.cweOption,
+            cvss = bareVuln.cvss,
+            description = bareVuln.description,
+            vulnerableSoftware = vulnerableSoftware,
+            references = references
+          )
+        )
+      }
     }
   }
 

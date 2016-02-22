@@ -164,17 +164,24 @@ class Statistics @Inject() (
         val relevantReports = selection.result
         val vulns = relevantReports.vulnerableDependencies.flatMap(dep => dep.vulnerabilities.map(vuln => (vuln, dep))).groupBy(_._1.name).mapValues{case vulnsWithDeps =>
           val (vulnSeq, depSeq) = vulnsWithDeps.unzip
-          val Seq(vuln) = vulnSeq.toSet.toSeq // Will fail when there are more different descriptions for one vulnerability…
-          vuln -> depSeq.toSet
+          //val Seq(vuln) = vulnSeq.toSet.toSeq // Will fail when there are more different descriptions for one vulnerability… TODO: load from database instead
+          /*vuln -> */depSeq.toSet
         }// .map(identity) // The .map(identity) materializes lazily mapped Map (because .mapValues is lazy). I am, however, unsure if this is a good idea. Probably not.
-        vulns.get(name).fold(Future.successful(Ok(views.html.statistics.vulnerabilityNotFound(
-          name = name,
-          projectsWithSelection = selection.projectsWithSelection
-        )))){ case (vuln, vulnerableDependencies) =>
+        vulns.get(name).fold{
+          for{
+            vulnOption <- odcService.getVulnerabilityDetails(name)
+          } yield Ok(views.html.statistics.vulnerabilityNotFound( // TODO: the not found page might be replaced by some page explaining that there is no project affected by that vulnerability
+            name = name,
+            projectsWithSelection = selection.projectsWithSelection
+          ))
+        }{ vulnerableDependencies =>
           for {
+            vulnOption <- odcService.getVulnerabilityDetails(name)
             plainLibs <- librariesService.byPlainLibraryIdentifiers(vulnerableDependencies.flatMap(_.plainLibraryIdentifiers)).map(_.keySet)
             ticketOption <- vulnerabilityNotificationService.issueTrackerExport.ticketForVulnerability(name)
-          } yield Ok(views.html.statistics.vulnerability(
+          } yield vulnOption.fold{
+            sys.error("The vulnerability is not in the database, you seem to have outdated the local vulnerability database") // TODO: consider fallback or more friendly error message
+          }{vuln => Ok(views.html.statistics.vulnerability(
             vulnerability = vuln,
             affectedProjects = vulnerableDependencies.flatMap(dep => dep.projects.map(proj => (proj, dep))).groupBy(_._1).mapValues(_.map(_._2)),
             vulnerableDependencies = vulnerableDependencies,
@@ -184,7 +191,7 @@ class Statistics @Inject() (
               ticket <- ticketOption
               issueTrackerService <- issueTrackerServiceOption
             } yield ticket -> issueTrackerService.ticketLink(ticket)
-          ))
+          ))}
         }
 
       }
