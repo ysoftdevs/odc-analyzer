@@ -8,12 +8,14 @@ import controllers.Statistics.LibDepStatistics
 import models.{EmailMessageId, ExportedVulnerability}
 import play.api.i18n.MessagesApi
 import play.api.libs.Crypto
-import play.api.mvc.Action
+import play.api.mvc.{RequestHeader, Action}
 import play.api.{Configuration, Logger}
 import services.{EmailExportService, IssueTrackerService, LibrariesService, VulnerabilityNotificationService}
+import views.html.DefaultRequest
 
 import scala.concurrent.Future.{successful => Fut}
 import scala.concurrent.{ExecutionContext, Future}
+import com.ysoft.concurrent.FutureLock._
 
 class Notifications @Inject()(
   config: Configuration,
@@ -90,31 +92,26 @@ class Notifications @Inject()(
 
   def cron(key: String, purgeCache: Boolean) = Action.async{
     if(Crypto.constantTimeEquals(key, config.getString("yssdc.cronKey").get)){
-      if(cronJobIsRunning.compareAndSet(/*expect = */false, /*update = */true)){
-        // TODO: reduce the opportunity for not releasing the lock and make it clear it can't happen
-        if(purgeCache){
+      futureLock(cronJobIsRunning) {
+        if (purgeCache) {
           projectReportsProvider.purgeCache(Map())
         }
         val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
-        (
-          for{
-            (successfulReports, failedReports) <- resultsFuture
-            libraries <- librariesService.all
-            parsedReports = dependencyCheckReportsParser.parseReports(successfulReports)
-            lds = LibDepStatistics(dependencies = parsedReports.groupedDependencies.toSet, libraries = libraries.toSet)
-            issuesExportResultFuture = exportToIssueTracker(lds, parsedReports.projectsReportInfo)
-            mailExportResultFuture = exportToEmail(lds, parsedReports.projectsReportInfo)
-            (missingTickets, newTicketIds, updatedTickets) <- issuesExportResultFuture
-            (missingEmails, newMessageIds, updatedEmails) <- mailExportResultFuture
-          } yield Ok(
-            missingTickets.mkString("\n")+"\n\n"+newTicketIds.mkString("\n")+ updatedTickets.toString+
-              "\n\n" +
-              missingEmails.mkString("\n")+"\n\n"+newMessageIds.mkString("\n") + updatedEmails.toString
-          )
-        ).andThen{ case _ =>
-          cronJobIsRunning.set(false)
-        }
-      }else{
+        for {
+          (successfulReports, failedReports) <- resultsFuture
+          libraries <- librariesService.all
+          parsedReports = dependencyCheckReportsParser.parseReports(successfulReports)
+          lds = LibDepStatistics(dependencies = parsedReports.groupedDependencies.toSet, libraries = libraries.toSet)
+          issuesExportResultFuture = exportToIssueTracker(lds, parsedReports.projectsReportInfo)
+          mailExportResultFuture = exportToEmail(lds, parsedReports.projectsReportInfo)
+          (missingTickets, newTicketIds, updatedTickets) <- issuesExportResultFuture
+          (missingEmails, newMessageIds, updatedEmails) <- mailExportResultFuture
+        } yield Ok(
+          missingTickets.mkString("\n") + "\n\n" + newTicketIds.mkString("\n") + updatedTickets.toString +
+            "\n\n" +
+            missingEmails.mkString("\n") + "\n\n" + newMessageIds.mkString("\n") + updatedEmails.toString
+        )
+      } whenLocked {
         Fut(ServiceUnavailable("A cron job seems to be running at this time"))
       }
     }else{
