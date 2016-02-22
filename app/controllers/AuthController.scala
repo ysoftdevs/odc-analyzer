@@ -2,15 +2,16 @@ package controllers
 
 import javax.inject.Inject
 
-import _root_.services.{UserService, CredentialsVerificationService}
+import _root_.services.{CredentialsVerificationService, UserService}
 import com.mohiva.play.silhouette.api._
 import com.mohiva.play.silhouette.api.util.Clock
 import com.mohiva.play.silhouette.impl.authenticators.CookieAuthenticator
 import models.User
 import play.api.data.Form
-import play.api.data.Forms.{email =>_, _}
+import play.api.data.Forms.{email => _, _}
 import play.api.i18n.{Messages, MessagesApi}
 import play.api.libs.concurrent.Execution.Implicits._
+import play.api.mvc.RequestHeader
 
 import scala.concurrent.Future
 
@@ -60,8 +61,9 @@ class AuthController @Inject() (
     )
   }
 
-  private def generateCallback(callback: String) = {
-    if (callback startsWith "/") Redirect(callback) else Redirect(routes.Application.index(Map()))
+  private def generateCallback(callback: String)(implicit hr: RequestHeader) = {
+    // Checking slash and adding //host is prevention against open redirect attacks. Just checking the leading slash is not enough, as one might pass callback like “//google.com”.
+    if (callback startsWith "/") Redirect("//"+hr.host+callback) else Redirect(routes.Application.index(Map()))
   }
 
   def signOut(callback: String) = SecuredAction.async { implicit request =>
