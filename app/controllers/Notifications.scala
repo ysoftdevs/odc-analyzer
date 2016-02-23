@@ -1,5 +1,6 @@
 package controllers
 
+import java.net.URLEncoder
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
@@ -137,12 +138,15 @@ class Notifications @Inject()(
     }
   }
 
+  // Redirection to a specific position does not look intuituve now, so it has been disabled for now.
+  private def redirectToProject(project: String)(implicit th: DefaultRequest) = Redirect(routes.Notifications.listProjects()/*.withFragment("project-" + URLEncoder.encode(project, "utf-8")).absoluteURL()*/)
+
   def watch(project: String) = SecuredAction.async{ implicit req =>
-    for( _ <-notificationService.subscribe(req.identity.loginInfo, project) ) yield Redirect(routes.Notifications.listProjects())
+    for( _ <-notificationService.subscribe(req.identity.loginInfo, project) ) yield redirectToProject(project)
   }
 
-  def unwatch(project: String) = SecuredAction.async{implicit req =>
-    for( _ <-notificationService.unsubscribe(req.identity.loginInfo, project) ) yield Redirect(routes.Notifications.listProjects())
+  def unwatch(project: String) = SecuredAction.async{ implicit req =>
+    for( _ <-notificationService.unsubscribe(req.identity.loginInfo, project) ) yield redirectToProject(project)
   }
 
 }
