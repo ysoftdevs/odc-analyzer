@@ -21,7 +21,7 @@ app{
 
 yssdc{
   # Anyone who knows the cron key can start periodic tasks
-  cronKey="{{ lookup('cron_token', 'play_secret length=64') }}"
+  cronKey="{{ lookup('password', 'cron_token length=64') }}"
   bamboo{
     url = …
   }

@@ -1,4 +1,6 @@
-# This is the main configuration file for the application.
+# This configuration file is intended for development mode. If you want an example configuration for peoduction, look at /production.conf-example
+#
+#
 # ~~~~~
 
 # Secret key
@@ -14,10 +16,14 @@ play.crypto.secret = "changeme"
 # ~~~~~
 play.i18n.langs = [ "en" ]
 
-play.modules.enabled += "modules.ConfigModule"
-play.modules.enabled += "modules.SilhouetteModule"
+app{
+  host = "localhost" # You have to configure the host there. If you don't do so, all accesses via host will be prohibited. This is a protection against DNS rebind attacks.
+  secure = false # Use true iff you use HTTPS
+}
 
 yssdc{
+  # Anyone who knows the cron key can start periodic tasks
+  cronKey="{{ lookup('cron_token', 'play_secret length=64') }}"
   bamboo{
     url = …
   }
@@ -26,6 +32,25 @@ yssdc{
     bamboo{
       user = …
       password = …
+    }
+  }
+  export{
+    # Optional section: export to issue tracker
+    issueTracker{
+      provider: "jira"
+      server: "http://…"
+      projectId = 10000
+      vulnerabilityIssueType = 10100
+      authentication {
+        type = "credentials"
+        user = "…"
+        password = "…"
+      }
+    }
+    # Optional section: email notifications
+    email{
+      from = "info@example.com"
+      noSubscriberContact = "foobar@example.com"
     }
   }
   projects = {jobId:humanReadableName, …}
@@ -75,7 +100,7 @@ slick.dbs.odc {
   driver = "slick.driver.MySQLDriver$"
   db {
     url = "jdbc:mysql://127.0.0.1/dependencycheck"
-    # Those credentials are default in ODC (but you might have changed them):
+    # These credentials are default in ODC (but you might have changed them):
     user = "dcuser"
     password = "DC-Pass1337!"
   }
@@ -112,6 +137,14 @@ silhouette {
     type="allow-all" # accepts any credentials; allowed in dev mode only
     #type="external" # verifies credentials at the URL specified below
     #url="http://localhost:9050/"
+  }
+}
+
+play{
+  # needed if you want this app to send emails
+  mailer{
+    mock = true # If mock is true, mails are not actually sent, but just logged.
+    // host = "…"
   }
 }
 

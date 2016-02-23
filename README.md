@@ -65,10 +65,10 @@ I decided to use PostgreSQL, because:
 
 The application also needs read-only access to vulnerability database maintained by OWASP Dependency Check. ODC currently supports H2 and MySQL. However, there are multiple issues with H2 for this usage. The first one issue is concurrent access. The concurrent access probably could have been somehow configured, but ODC uses different case for MySQL and H2 table names and column names. This makes it hard to support both at the same time.
 
-## Development notes
+## Running multiple instances behind load-balancer
 
-### Naming
-* Library × Identifier × PlainLibraryIdentifier – should be renamed
-    * Identifier is the most verbose one, it comes from OWASP Dependency Check.
-    * Library is a record stored in our database.
-    * PlainLibraryIdentifier is just version-less (e.g. `"$groupId:$artifactId"`) library identifier.
+Although Play framework is designed to allow running one application in multiple instances in order to balance the load, applications might break the share-nothing approach, which is also the case of this application. Such applications might not work properly when running in multiple instances behind a load balancer. We simply did not consider to be so important for this application, but if it is your concern, we are happy to accept pull requests that address this issue. There are basically two points with shared state:
+
+* Cache. The cache can be purged manually, which might cause inconsistent behavior. For example, when you purge the cache on one server instance and you are switched to another instance then. This might be avoidable by adding some timestamp to some cookie, but this is not implemented.
+* Cron task locking. The lock is held in an instance, not in database. This behavior is good when recovering from a crash, but you should not run the cron job on multiple servers at the same time. Not following this advice might lead to multiple exports (e.g., emails or issue tracker items) for one event and even to some crashes when a worker tries to add a ticket ID for already exported issue. Maybe no pull code change is desired and it should be administrator's responsibility to run the cron task on one machine only.
+
