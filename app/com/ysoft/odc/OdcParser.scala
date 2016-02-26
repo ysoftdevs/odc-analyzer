@@ -1,16 +1,19 @@
 package com.ysoft.odc
 
 import com.github.nscala_time.time.Imports._
+import com.ysoft.memory.ObjectPool
 import controllers.ReportInfo
 import models.{LibraryType, PlainLibraryIdentifier}
 
 import scala.xml._
 
-final case class SerializableXml private (xmlString: String, @transient private val xmlData: NodeSeq) extends Serializable{
-  @transient lazy val xml = Option(xmlData).getOrElse(SecureXml.loadString(xmlString))
+
+final case class SerializableXml private (xmlString: String) extends Serializable{
+  def xml = SecureXml.loadString(xmlString) // TODO: cache
 
   override def equals(obj: scala.Any): Boolean = obj match {
-    case SerializableXml(s, _) => s == this.xmlString
+    case SerializableXml(s/*, _*/) => s == this.xmlString
+    case other => false
   }
 
   override def hashCode(): Int = 42+xmlString.hashCode
@@ -18,8 +21,8 @@ final case class SerializableXml private (xmlString: String, @transient private 
 }
 
 object SerializableXml{
-  def apply(xml: Node): SerializableXml = SerializableXml(xml.toString(), xml)
-  def apply(xml: NodeSeq): SerializableXml = SerializableXml(xml.toString(), xml)
+  def apply(xml: Node): SerializableXml = SerializableXml(xml.toString())
+  def apply(xml: NodeSeq): SerializableXml = SerializableXml(xml.toString())
 }
 
 final case class Analysis(scanInfo: SerializableXml, name: String, reportDate: DateTime, dependencies: Seq[Dependency])
@@ -61,6 +64,7 @@ final case class Dependency(
 
 /**
  * A group of dependencies having the same fingerprints
+ *
  * @param dependencies
  */
 final case class GroupedDependency(dependencies: Map[Dependency, Set[ReportInfo]]) {
@@ -82,7 +86,10 @@ final case class GroupedDependency(dependencies: Map[Dependency, Set[ReportInfo]
 }
 
 object GroupedDependency{
-  def apply(deps: Seq[(Dependency, ReportInfo)]): GroupedDependency = GroupedDependency(deps.groupBy(_._1).mapValues(_.map(_._2).toSet)) // TODO: the groupBy seems to be a CPU hog (because of GroupedDependency.equals); The mapValues is lazy, so its repeated might also be a performance hog, but I doubt that values are used frequently.
+  private val groupToSet = (_: Seq[(Dependency, ReportInfo)]).map(_._2).toSet // reduces number of lambda instances
+  def apply(deps: Seq[(Dependency, ReportInfo)]): GroupedDependency = {
+    GroupedDependency(deps.groupBy(_._1).mapValues(groupToSet))
+  } // TODO: the groupBy seems to be a CPU hog (because of GroupedDependency.equals); The mapValues is lazy, so its repeated might also be a performance hog, but I doubt that values are used frequently.
 }
 
 object Confidence extends Enumeration {
@@ -101,7 +108,7 @@ final case class VulnerableSoftware(allPreviousVersion: Boolean, name: String)
 
 final case class CvssRating(score: Option[Double], authenticationr: Option[String], availabilityImpact: Option[String], accessVector: Option[String], integrityImpact: Option[String], accessComplexity: Option[String], confidentialImpact: Option[String])
 
-final case class CWE(name: String) extends AnyVal{
+final case class CWE private(name: String) /*extends AnyVal*/{ // extends AnyVal prevents pooling
   override def toString = name
   def brief = name.takeWhile(_ != ' ')
   def numberOption: Option[Int] = if(brief startsWith "CWE-") try {
@@ -109,6 +116,11 @@ final case class CWE(name: String) extends AnyVal{
   } catch {
     case _: NumberFormatException => None
   } else None
+}
+
+object CWE{
+  private val cwePool = new ObjectPool()
+  def forIdentifierWithDescription(name: String) = cwePool(new CWE(name))
 }
 
 final case class Vulnerability(name: String, cweOption: Option[CWE], cvss: CvssRating, description: String, vulnerableSoftware: Seq[VulnerableSoftware], references: Seq[Reference]){
@@ -133,6 +145,12 @@ final case class Identifier(name: String, confidence: Confidence.Confidence, url
 }
 
 object OdcParser {
+
+  private val vulnPool = new ObjectPool()
+  private val evidencePool = new ObjectPool()
+  private val dependencyPool = new ObjectPool()
+  private val identifierPool = new ObjectPool()
+  private val vulnerableSoftwarePool = new ObjectPool()
 
   def filterWhitespace(node: Node) = node.nonEmptyChildren.filter{
     case t: scala.xml.Text if t.text.trim == "" => false
@@ -168,10 +186,10 @@ object OdcParser {
     if(node.label != "software"){
       sys.error(s"Unexpected element for vulnerableSoftware: ${node.label}")
     }
-    VulnerableSoftware(
+    vulnerableSoftwarePool(VulnerableSoftware(
       name = node.text,
       allPreviousVersion = node.attribute("allPreviousVersion").map(_.text).map(Map("true"->true, "false"->false)).getOrElse(false)
-    )
+    ))
   }
 
   def parseReference(node: Node): Reference = {
@@ -207,10 +225,10 @@ object OdcParser {
           }
       }
     }
-    Vulnerability(
+    vulnPool(Vulnerability(
       name = (node \ "name").text,
       //severity = (node \ "severity"), <- severity is useless, as it is computed from cvssScore :D
-      cweOption = (node \ "cwe").headOption.map(_.text).map(CWE),
+      cweOption = (node \ "cwe").headOption.map(_.text).map(CWE.forIdentifierWithDescription),
       description = (node \ "description").text,
       cvss = CvssRating(
         score = (node \ "cvssScore").headOption.map(_.text.toDouble),
@@ -223,21 +241,21 @@ object OdcParser {
       ),
       references = (node \ "references").flatMap(filterWhitespace).map(parseReference(_)),
       vulnerableSoftware = (node \ "vulnerableSoftware").flatMap(filterWhitespace).map(parseVulnerableSoftware)
-    )
+    ))
   }
 
   def parseIdentifier(node: Node): Identifier = {
     checkElements(node, Set("name", "url"))
     checkParams(node, Set("type", "confidence"))
     val ExtractPattern = """\((.*)\)""".r
-    Identifier(
+    identifierPool(Identifier(
       name = (node \ "name").text match {
         case ExtractPattern(text) => text
       },
       url = (node \ "url").text,
       identifierType = node.attribute("type").get.text,
       confidence = Confidence.withName(node.attribute("confidence").get.text)
-    )
+    ))
   }
 
   def parseIdentifiers(seq: Node): Seq[Identifier] = {
@@ -248,7 +266,7 @@ object OdcParser {
     checkElements(node, Set("fileName", "filePath", "md5", "sha1", "description", "evidenceCollected", "identifiers", "license", "vulnerabilities", "relatedDependencies"))
     checkParams(node, Set())
     val (vulnerabilities: Seq[Node], suppressedVulnerabilities: Seq[Node]) = (node \ "vulnerabilities").headOption.map(filterWhitespace).getOrElse(Seq()).partition(_.label == "vulnerability")
-    Dependency(
+    dependencyPool(Dependency(
       fileName = (node \ "fileName").text,
       filePath = (node \ "filePath").text,
       md5 = (node \ "md5").text,
@@ -260,7 +278,7 @@ object OdcParser {
       vulnerabilities = vulnerabilities.map(parseVulnerability(_)),
       suppressedVulnerabilities = suppressedVulnerabilities.map(parseVulnerability(_, "suppressedVulnerability")),
       relatedDependencies = SerializableXml(node \ "relatedDependencies")
-    )
+    ))
   }
 
   def parseEvidence(node: Node): Evidence = {
@@ -269,13 +287,13 @@ object OdcParser {
     }
     checkElements(node, Set("source", "name", "value"))
     checkParams(node, Set("confidence", "type"))
-    Evidence(
+    evidencePool(Evidence(
       source = (node \ "source").text,
       name = (node \ "name").text,
       value = (node \ "value").text,
       confidence = node.attribute("confidence").map(_.text).get,
       evidenceType = node.attribute("type").map(_.text).get
-    )
+    ))
   }
 
   def parseDependencies(nodes: NodeSeq): Seq[Dependency] = nodes.map(parseDependency(_))

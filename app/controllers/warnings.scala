@@ -12,10 +12,13 @@ object WarningSeverity extends Enumeration {
 }
 
 sealed abstract class Warning {
+  def optimize: Warning
   def html: Html
   def id: String
   def allowSnoozes = true
   def severity: WarningSeverity
 }
 
-final case class IdentifiedWarning(id: String, html: Html, severity: WarningSeverity) extends Warning
+final case class IdentifiedWarning(id: String, html: Html, severity: WarningSeverity) extends Warning{
+  def optimize = copy(html = Html(html.body))
+}

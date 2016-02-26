@@ -11,7 +11,7 @@ import play.api.data.Forms._
 import play.api.data._
 import play.api.db.slick.{DatabaseConfigProvider, HasDatabaseConfigProvider}
 import play.api.http.ContentTypes
-import play.api.i18n.{I18nSupport, MessagesApi}
+import play.api.i18n.MessagesApi
 import play.api.libs.json._
 import play.api.mvc._
 import play.api.routing.JavaScriptReverseRouter
@@ -62,7 +62,6 @@ class Application @Inject() (
   import dbConfig.driver.api._
   import models.tables.snoozesTable
   import reportsProcessor.processResults
-
   import secureRequestConversion._
 
   val dateFormatter = DateTimeFormat.forPattern("dd-MM-yyyy")
@@ -126,6 +125,11 @@ class Application @Inject() (
         lastRefreshTime <- lastRefreshTimeFuture
       } yield {
         Logger.debug("indexPage: Got all ingredients")
+        /*val (global, classes) = ObjectGraphDuplicityMeasurer.measureUnique((vulnerableDependencies, allWarnings, groupedDependencies))
+        Logger.debug("(all,unique): "+global)
+        Logger.debug(classes.toIndexedSeq.sortBy(x => (x._2, x._1.getName)).mkString("\n"))
+        Logger.debug("footprint: "+ObjectGraphMeasurer.measure((vulnerableDependencies, allWarnings, groupedDependencies)))
+        //Logger.debug("footprint: "+ObjectGraphMeasurer.measure(Array((vulnerableDependencies, allWarnings, groupedDependencies))))*/
         Ok(views.html.index(
           vulnerableDependencies = vulnerableDependencies,
           warnings = allWarnings,

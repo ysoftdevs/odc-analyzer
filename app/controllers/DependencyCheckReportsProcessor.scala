@@ -96,7 +96,7 @@ final class DependencyCheckReportsProcessor @Inject() (
 
       // TODO: log analysis
       // TODO: related dependencies
-      (vulnerableDependencies, allWarnings, groupedDependencies)
+      (vulnerableDependencies, allWarnings.map(_.optimize), groupedDependencies)
     }
   }finally{
     Logger.debug("Reports processed")

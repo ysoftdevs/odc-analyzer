@@ -77,6 +77,8 @@ libraryDependencies += "org.owasp" % "dependency-check-core" % "1.3.0"
 
 libraryDependencies += "com.typesafe.play" %% "play-mailer" % "3.0.1"
 
+libraryDependencies += "com.google.caliper" % "caliper" % "1.0-beta-2"
+
 routesImport += "binders.QueryBinders._"
 
 // Uncomment to use Akka
