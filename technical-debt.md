@@ -11,7 +11,7 @@ This code calls some OWASP Dependency Check API. However:
 ## Caching
 
 * Caching might require large amount of RAM. In some cases, this might cause OOMs.
-* Expensive computation might be performed multiple times when another cache-miss is done before the computation is done. This might be solved by switching to spray-caching, which will however probably need a custom backend.
+* Expensive computation might be performed multiple times when another cache-miss is done before the computation is done. In order to resolve this issue, we need proper “get or compute” semantics. This might be solved by switching to spray-caching, which will however probably need a custom backend. [Guava Cache](https://guava-libraries.googlecode.com/files/JavaCachingwithGuava.pdf) seems to address the issue, except that it does not have an idiomatic Java API and it does not use Futures. While [ScalaCache](https://github.com/cb372/scalacache) can use Guava Cache as its backend, it does not seem to keep the “get or compute” semantics. Maybe the best option is to implement Guava Cache based backend for spray-caching.
 * Cache does not explicitly expire. The current workaround is using the cron job for periodic refresh.
 * Manual cache control makes it inconsistent when multiple instances behind a load-balancer are used. (Note that if you require such setup, you will probably want to do few adjustments. We are OK with consulting such changes and accepting some reasonable pull-request for supporting such functionality, but we don't want to implement it ourselves, because we don't need such setup.)
 
