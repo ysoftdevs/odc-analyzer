@@ -81,6 +81,8 @@ libraryDependencies += "com.google.caliper" % "caliper" % "1.0-beta-2"
 
 libraryDependencies += "org.apache.httpcomponents" % "httpclient" % "4.3.6" // evict the vulnerable version
 
+libraryDependencies += "commons-collections" % "commons-collections" % "3.2.2" // evict the vulnerable version
+
 routesImport += "binders.QueryBinders._"
 
 // Uncomment to use Akka
