@@ -1,6 +1,8 @@
 
 import java.nio.file.{Paths, Files}
 
+import slick.lifted.MappedProjection
+
 import scala.language.reflectiveCalls
 
 package object models {
@@ -18,6 +20,7 @@ package object models {
     val snoozesTable = TableQuery[Snoozes]
     val authTokens = TableQuery[CookieAuthenticators]
     val vulnerabilitySubscriptions = TableQuery[VulnerabilitySubscriptions]
+    val changelog = TableQuery[Changes]
 
     val issueTrackerExportTables = new ExportPlatformTables[String, (String, String, Int)](){
       val tableNamePart = "issue_tracker"
@@ -44,10 +47,24 @@ package object models {
       override val tickets = TableQuery[EmailExportedVulnerabilities]
     }
 
+    val diffDbExportTables = new ExportPlatformTables[String, (String, Int)] {
+      val tableNamePart = "diff_db"
+      class DiffDbVulnerabilities(tag: Tag) extends ExportedVulnerabilities[String, (String, Int)](tag, tableNamePart){
+        override def base: MappedProjection[ExportedVulnerability[String], (String, Int)] = (vulnerabilityName, ticketFormatVersion) <> (
+          ((n: String, v: Int) => ExportedVulnerability[String](n, n, v)).tupled,
+          obj => ExportedVulnerability.unapply[String](obj).map{case (n, _, v) => (n, v)}
+        )
+      }
+      class DiffDbVulnerabilityProject(tag: Tag) extends ExportedVulnerabilityProjects(tag, tableNamePart)
+
+      override val projects = TableQuery[DiffDbVulnerabilityProject]
+      override val tickets = TableQuery[DiffDbVulnerabilities]
+    }
+
     /*{
       import profile.SchemaDescription
       val schema = Seq[Any{def schema: SchemaDescription}](
-        vulnerabilitySubscriptions, issueTrackerExportTables, mailExportTables
+        diffDbExportTables, changelog
       ).map(_.schema).foldLeft(profile.DDL(Seq(), Seq()))(_ ++ _)
 
       val sql = Seq(
@@ -58,7 +75,7 @@ package object models {
         schema.dropStatements.toSeq.map(_+";").mkString("\n").dropWhile(_ == "\n"),
         "\n"
       ).mkString("\n")
-      Files.write(Paths.get("conf/evolutions/default/6.sql"), sql.getBytes("utf-8"))
+      Files.write(Paths.get("conf/evolutions/default/7.sql"), sql.getBytes("utf-8"))
     }*/
 
   }

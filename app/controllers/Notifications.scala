@@ -104,9 +104,12 @@ class Notifications @Inject()(
           parsedReports = dependencyCheckReportsParser.parseReports(successfulReports)
           lds = LibDepStatistics(dependencies = parsedReports.groupedDependencies.toSet, libraries = libraries.toSet)
           issuesExportResultFuture = exportToIssueTracker(lds, parsedReports.projectsReportInfo)
+          diffDbExportResultFuture = exportToDiffDb(lds, parsedReports.projectsReportInfo)
+          //mailExportResultFuture = diffDbExportResultFuture.flatMap(_ => exportToEmailDigest(lds, parsedReports.projectsReportInfo))
           mailExportResultFuture = exportToEmail(lds, parsedReports.projectsReportInfo)
           (missingTickets, newTicketIds, updatedTickets) <- issuesExportResultFuture
           (missingEmails, newMessageIds, updatedEmails) <- mailExportResultFuture
+          (missingVulns, newVulnIds, updatedVulns) <- diffDbExportResultFuture
         } yield Ok(
           missingTickets.mkString("\n") + "\n\n" + newTicketIds.mkString("\n") + updatedTickets.toString +
             "\n\n" +
@@ -130,11 +133,27 @@ class Notifications @Inject()(
     }
   }
 
+  // FIXME: In case of crash during export, one change might be exported multiple times. This can't be solved in e-mail exports, but it might be solved in issueTracker and diffDb exports.
   private def exportToIssueTracker(lds: LibDepStatistics, p: ProjectsWithReports) = forService(issueTrackerServiceOption){ issueTrackerService =>
     notifyVulnerabilities[String](lds, notificationService.issueTrackerExport, p) { (vulnerability, dependencies) =>
       issueTrackerService.reportVulnerability(vulnerability)
     }{ (vuln, diff, ticket) =>
       Fut(())
+    }
+  }
+
+  private def exportToDiffDb(lds: LibDepStatistics, p: ProjectsWithReports) = {
+    notifyVulnerabilities[String](lds, notificationService.diffDbExport, p){ (vulnerability, dependencies) =>
+      //?save_new_vulnerability
+      val affectedProjects = dependencies.flatMap(_.projects)
+      val diff = new SetDiff(Set(), affectedProjects)
+      notificationService.changeAffectedProjects(vulnerability.name, diff.map(_.fullId)).map{_ =>
+        ExportedVulnerability[String](vulnerabilityName = vulnerability.name, ticket = vulnerability.name, ticketFormatVersion = 0)
+      }
+    }{ (vulnerability, diff, id) =>
+      notificationService.changeAffectedProjects(vulnerability.name, diff).map{_ =>
+        ()
+      }
     }
   }
 
