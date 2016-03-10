@@ -1,21 +1,32 @@
 package services
 
 import java.util.NoSuchElementException
-import javax.inject.Named
 
-import com.ysoft.odc.{SetDiff, Absolutizer}
+import com.mohiva.play.silhouette.api.LoginInfo
+import com.ysoft.odc.{Absolutizer, SetDiff}
 import controllers._
-import models.EmailMessageId
-import play.api.libs.mailer.{MailerClient, Email}
+import models.Change.Direction
+import models.{Change, EmailMessageId}
+import play.api.libs.mailer.{Email, MailerClient}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class EmailExportService(from: String, nobodyInterestedContact: String, mailerClient: MailerClient, notificationService: VulnerabilityNotificationService, emailSendingExecutionContext: ExecutionContext, absolutizer: Absolutizer)(implicit executionContext: ExecutionContext) {
+
+object EmailExportType extends Enumeration {
+  val Vulnerabilities = Value("vulnerabilities")
+  val Digest = Value("digest")
+}
+
+class EmailExportService(from: String, nobodyInterestedContact: String, val exportType: EmailExportType.Value, odcService: OdcService, mailerClient: MailerClient, notificationService: VulnerabilityNotificationService, emailSendingExecutionContext: ExecutionContext, absolutizer: Absolutizer)(implicit executionContext: ExecutionContext) {
+  // Maybe it is not the best place for exportType, but I am not sure if we want this to be configurable. If no, then we can get rid of it. If yes, we should refactor it.
+
+
+  private def getEmail(loginInfo: LoginInfo) = loginInfo.providerKey // TODO: get the email in a cleaner way
 
   def recipientsForProjects(projects: Set[ReportInfo]) = for{
     recipients <- notificationService.getRecipientsForProjects(projects)
   } yield {
-    recipients.map(_.providerKey) match { // TODO: get the email in a cleaner way
+    recipients.map(getEmail) match {
       case Seq() => Seq(nobodyInterestedContact) -> false
       case other => other -> true
     }
@@ -60,5 +71,48 @@ class EmailExportService(from: String, nobodyInterestedContact: String, mailerCl
     bcc = recipientEmails,
     bodyText = Some(vulnerability.description + "\n\n" + s"More details: "+absolutizer.absolutize(routes.Statistics.vulnerability(vulnerability.name, None)))
   )
+
+
+
+  def emailDigest(subscriber: LoginInfo, changes: Seq[Change], projects: ProjectsWithReports): Future[Email] = {
+    val vulnNames = changes.map(_.vulnerabilityName).toSet
+    for {
+      vulns <- Future.traverse(vulnNames.toSeq)(name => odcService.getVulnerabilityDetails(name).map(v => name -> v.get)).map(_.toMap)
+      groups = changes.groupBy(_.direction).withDefaultValue(Seq())
+    } yield {
+      val changesMarks = Map(Direction.Added -> "❢", Direction.Removed -> "☑")
+      def vulnerabilityText(change: Change, vulnerability: Vulnerability) = (
+        s"#### ${changesMarks(change.direction)} ${vulnerability.name}${vulnerability.cvssScore.fold("")(sev => s" (CVSS severity: $sev)")}"
+        +"\n"+vulnerability.description
+        +"\nmore info: "+absolutizer.absolutize(routes.Statistics.vulnerability(vulnerability.name, None))
+      )
+      def vulnChanges(changes: Seq[Change]) =
+        changes.map(c => c -> vulns(c.vulnerabilityName))
+          .sortBy{case (change, vuln) => (vuln.cvssScore.map(-_), vuln.name)}
+          .map((vulnerabilityText _).tupled)
+          .mkString("\n\n")
+      def vulnerableProjects(projectIdToChanges: Map[String, Seq[Change]]) =
+        projectIdToChanges.toIndexedSeq.map{case (project, ch) => (projects.parseUnfriendlyNameGracefully(project), ch)}
+          .sortBy{case (ri, _) => friendlyProjectNameString(ri).toLowerCase}
+          .map{case (project, changes) => "### "+friendlyProjectNameString(project)+"\n"+vulnChanges(changes)}
+          .mkString("\n\n")
+      def section(title: String, direction: Direction) = {
+        groups(direction) match {
+          case Seq() => None
+          case list => Some("## "+title + "\n\n" + vulnerableProjects(list.groupBy(_.projectName)))
+        }
+      }
+      Email(
+        subject = s"New changes in vulnerabilities (${changes.size}: +${groups(Direction.Added).size} -${groups(Direction.Removed).size})",
+        to = Seq(getEmail(subscriber)),
+        from = from,
+        bodyText = Some(Seq(
+          section("Projects newly affected by a vulnerability", Direction.Added),
+          section("Projects no longer affected by a vulnerability", Direction.Removed)
+        ).flatten.mkString("\n\n"))
+        //bodyHtml =  TODO
+      )
+    }
+  }
 
 }

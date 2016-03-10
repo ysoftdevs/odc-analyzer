@@ -1,22 +1,21 @@
 package controllers
 
-import java.net.URLEncoder
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
+import com.ysoft.concurrent.FutureLock._
 import com.ysoft.odc.{Absolutizer, SetDiff}
 import controllers.Statistics.LibDepStatistics
 import models.{EmailMessageId, ExportedVulnerability}
 import play.api.i18n.MessagesApi
 import play.api.libs.Crypto
-import play.api.mvc.{RequestHeader, Action}
+import play.api.mvc.Action
 import play.api.{Configuration, Logger}
-import services.{EmailExportService, IssueTrackerService, LibrariesService, VulnerabilityNotificationService}
+import services._
 import views.html.DefaultRequest
 
 import scala.concurrent.Future.{successful => Fut}
 import scala.concurrent.{ExecutionContext, Future}
-import com.ysoft.concurrent.FutureLock._
 
 class Notifications @Inject()(
   config: Configuration,
@@ -105,15 +104,18 @@ class Notifications @Inject()(
           lds = LibDepStatistics(dependencies = parsedReports.groupedDependencies.toSet, libraries = libraries.toSet)
           issuesExportResultFuture = exportToIssueTracker(lds, parsedReports.projectsReportInfo)
           diffDbExportResultFuture = exportToDiffDb(lds, parsedReports.projectsReportInfo)
-          //mailExportResultFuture = diffDbExportResultFuture.flatMap(_ => exportToEmailDigest(lds, parsedReports.projectsReportInfo))
-          mailExportResultFuture = exportToEmail(lds, parsedReports.projectsReportInfo)
+          mailExportResultFuture = emailExportServiceOption.map(_.exportType) match{
+            case Some(EmailExportType.Vulnerabilities) => exportToEmail(lds, parsedReports.projectsReportInfo).map((_: (_, _, _)) => ())
+            case Some(EmailExportType.Digest) => diffDbExportResultFuture.flatMap(_ => exportToEmailDigest(lds, parsedReports.projectsReportInfo))
+            case None => Future(())
+          }
           (missingTickets, newTicketIds, updatedTickets) <- issuesExportResultFuture
-          (missingEmails, newMessageIds, updatedEmails) <- mailExportResultFuture
+          (_: Unit) <- mailExportResultFuture
           (missingVulns, newVulnIds, updatedVulns) <- diffDbExportResultFuture
         } yield Ok(
-          missingTickets.mkString("\n") + "\n\n" + newTicketIds.mkString("\n") + updatedTickets.toString +
-            "\n\n" +
-            missingEmails.mkString("\n") + "\n\n" + newMessageIds.mkString("\n") + updatedEmails.toString
+          missingTickets.mkString("\n") + "\n\n" + newTicketIds.mkString("\n") + updatedTickets.toString
+            //"\n\n" +
+            //missingEmails.mkString("\n") + "\n\n" + newMessageIds.mkString("\n") + updatedEmails.toString
         )
       } whenLocked {
         Fut(ServiceUnavailable("A cron job seems to be running at this time"))
@@ -151,9 +153,26 @@ class Notifications @Inject()(
         ExportedVulnerability[String](vulnerabilityName = vulnerability.name, ticket = vulnerability.name, ticketFormatVersion = 0)
       }
     }{ (vulnerability, diff, id) =>
-      notificationService.changeAffectedProjects(vulnerability.name, diff).map{_ =>
-        ()
-      }
+      notificationService.changeAffectedProjects(vulnerability.name, diff)
+    }
+  }
+
+  private val emailDigestThrottler = new SingleFutureExecutionThrottler()
+
+  private def exportToEmailDigest(lds: LibDepStatistics, p: ProjectsWithReports) = emailExportServiceOption.fold(Future.successful(())){ emailExportService =>
+    notificationService.subscribers.flatMap{ subscribers =>
+      Future.traverse(subscribers){ case (subscriber, subscriptions) =>
+        emailDigestThrottler.throttle {
+          notificationService.sendDigestToSubscriber(subscriber, subscriptions) {
+            case Seq() => Future.successful(())
+            case changes =>
+              for {
+                emailMessage <- emailExportService.emailDigest(subscriber, changes, p)
+                (_: String) <- emailExportService.sendEmail(emailMessage)
+              } yield ()
+          }
+        }
+      }.map((_ : Iterable[Unit]) => ())
     }
   }
 

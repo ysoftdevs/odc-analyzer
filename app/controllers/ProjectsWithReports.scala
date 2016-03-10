@@ -48,7 +48,11 @@ class ProjectsWithReports (val projects: Projects, val reports: Set[String]) {
     reportsMap ++ reportsMap.values.map(r => r.projectId -> ReportInfo(projectId = r.projectId, fullId = r.projectId, subprojectNameOption = None, projectName = r.projectName))
   }
 
-  def parseUnfriendlyName(unfriendlyName: String): ReportInfo = {
+  def parseUnfriendlyNameGracefully(unfriendlyName: String) = parseUnfriendlyName(unfriendlyName, identity)
+
+  def parseUnfriendlyName(unfriendlyName: String): ReportInfo = parseUnfriendlyName(unfriendlyName, _ => sys.error(s"Project $unfriendlyName not found!"))
+
+  private def parseUnfriendlyName(unfriendlyName: String, missingProject: String => String): ReportInfo = {
     val (baseName, theRest) = unfriendlyName.span(_ != '/')
     val removeLeadingMess = RestMessBeginRegexp.replaceAllIn(_: String, "")
     val removeTrailingMess = RestMessEndRegexp.replaceAllIn(_: String, "")
@@ -57,7 +61,7 @@ class ProjectsWithReports (val projects: Projects, val reports: Set[String]) {
     ReportInfo(
       projectId = baseName,
       fullId = unfriendlyName,
-      projectName = projects.projectMap(baseName),
+      projectName = projects.projectMap.getOrElse(baseName, missingProject(baseName)),
       subprojectNameOption = subProjectOption.orElse(Some("root project"))
     )
   }

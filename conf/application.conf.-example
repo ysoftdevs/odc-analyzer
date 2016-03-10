@@ -51,6 +51,7 @@ yssdc{
     email{
       from = "info@example.com"
       noSubscriberContact = "foobar@example.com"
+      //optional: type = "digest" or type="vulnerabilities" (default); Digest is WIP.
     }
   }
   projects = {jobId:humanReadableName, …}

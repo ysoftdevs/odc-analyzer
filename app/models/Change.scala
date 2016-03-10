@@ -23,7 +23,7 @@ object Change {
 
 }
 
-case class Change (time: DateTime, vulnerabilityName: String, projectName: String, direction: Change.Direction)
+case class Change (time: DateTime, vulnerabilityName: String, projectName: String, direction: Change.Direction, notifiedToSomebody: Boolean)
 
 class Changes(tag: Tag) extends Table[(Int, Change)](tag, "change"){
   def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
@@ -32,7 +32,8 @@ class Changes(tag: Tag) extends Table[(Int, Change)](tag, "change"){
   def vulnerabilityName = column[String]("vulnerability_name")
   def projectName = column[String]("project_name")
   def direction = column[Change.Direction]("direction")
+  def notifiedToSomebody = column[Boolean]("notified_to_somebody")
 
-  def base = (time, vulnerabilityName, projectName, direction) <> ((Change.apply _).tupled, Change.unapply)
+  def base = (time, vulnerabilityName, projectName, direction, notifiedToSomebody) <> ((Change.apply _).tupled, Change.unapply)
   override def * = (id, base)
 }

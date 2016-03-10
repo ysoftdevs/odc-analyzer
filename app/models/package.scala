@@ -21,6 +21,7 @@ package object models {
     val authTokens = TableQuery[CookieAuthenticators]
     val vulnerabilitySubscriptions = TableQuery[VulnerabilitySubscriptions]
     val changelog = TableQuery[Changes]
+    val notificationDigestStatuses = TableQuery[NotificationDigestStatuses]
 
     val issueTrackerExportTables = new ExportPlatformTables[String, (String, String, Int)](){
       val tableNamePart = "issue_tracker"
@@ -64,7 +65,7 @@ package object models {
     /*{
       import profile.SchemaDescription
       val schema = Seq[Any{def schema: SchemaDescription}](
-        diffDbExportTables, changelog
+        notificationDigestStatuses
       ).map(_.schema).foldLeft(profile.DDL(Seq(), Seq()))(_ ++ _)
 
       val sql = Seq(
@@ -75,7 +76,7 @@ package object models {
         schema.dropStatements.toSeq.map(_+";").mkString("\n").dropWhile(_ == "\n"),
         "\n"
       ).mkString("\n")
-      Files.write(Paths.get("conf/evolutions/default/7.sql"), sql.getBytes("utf-8"))
+      Files.write(Paths.get("conf/evolutions/default/8.sql"), sql.getBytes("utf-8"))
     }*/
 
   }

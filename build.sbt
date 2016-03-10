@@ -8,6 +8,8 @@ scalaVersion := "2.11.7"
 
 resolvers += "Atlassian Releases" at "https://maven.atlassian.com/public/"
 
+resolvers += Resolver.jcenterRepo
+
 libraryDependencies ++= Seq(
   //jdbc,
   cache,
@@ -71,7 +73,7 @@ libraryDependencies += "org.webjars.bower" % "jquery.scrollTo" % "2.1.2"
 
 libraryDependencies += "net.codingwell" %% "scala-guice" % "4.0.0"
 
-libraryDependencies += "net.ceedubs" %% "ficus" % "1.1.2"
+libraryDependencies += "com.iheart" %% "ficus" % "1.2.3"
 
 libraryDependencies += "org.owasp" % "dependency-check-core" % "1.3.0"
 
