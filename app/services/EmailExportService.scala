@@ -3,14 +3,16 @@ package services
 import java.util.NoSuchElementException
 
 import com.mohiva.play.silhouette.api.LoginInfo
+import com.ysoft.html.HtmlWithText
+import com.ysoft.html.HtmlWithText._
 import com.ysoft.odc.{Absolutizer, SetDiff}
 import controllers._
 import models.Change.Direction
 import models.{Change, EmailMessageId}
 import play.api.libs.mailer.{Email, MailerClient}
+import play.twirl.api.{Html, HtmlFormat}
 
 import scala.concurrent.{ExecutionContext, Future}
-
 
 object EmailExportType extends Enumeration {
   val Vulnerabilities = Value("vulnerabilities")
@@ -81,36 +83,45 @@ class EmailExportService(from: String, nobodyInterestedContact: String, val expo
       groups = changes.groupBy(_.direction).withDefaultValue(Seq())
     } yield {
       val changesMarks = Map(Direction.Added -> "❢", Direction.Removed -> "☑")
-      def vulnerabilityText(change: Change, vulnerability: Vulnerability) = (
-        s"#### ${changesMarks(change.direction)} ${vulnerability.name}${vulnerability.cvssScore.fold("")(sev => s" (CVSS severity: $sev)")}"
-        +"\n"+vulnerability.description
-        +"\nmore info: "+absolutizer.absolutize(routes.Statistics.vulnerability(vulnerability.name, None))
+      def heading(level: Int)(s: String) = HtmlWithText(
+        html = Html("<h"+level+">"+HtmlFormat.escape(s)+"</h"+level+">"),
+        text = ("#"*level) + s + "\n"
       )
-      def vulnChanges(changes: Seq[Change]) =
+      def moreInfo(link: String) = HtmlWithText(
+        text = "more info: "+link,
+        html = Html("<a href=\""+HtmlFormat.escape(link)+"\">more info</a>")
+      )
+      def vulnerabilityText(change: Change, vulnerability: Vulnerability): HtmlWithText = (
+        heading(4)(s"${changesMarks(change.direction)} ${vulnerability.name}${vulnerability.cvssScore.fold("")(sev => s" (CVSS severity: $sev)")}")
+        + justHtml("<p>") + plainText(vulnerability.description) + justHtml("<br>") + justText("\n")
+        + moreInfo(absolutizer.absolutize(routes.Statistics.vulnerability(vulnerability.name, None))) + justHtml("</p>")
+      )
+      def vulnChanges(changes: Seq[Change]): HtmlWithText =
         changes.map(c => c -> vulns(c.vulnerabilityName))
           .sortBy{case (change, vuln) => (vuln.cvssScore.map(-_), vuln.name)}
           .map((vulnerabilityText _).tupled)
-          .mkString("\n\n")
-      def vulnerableProjects(projectIdToChanges: Map[String, Seq[Change]]) =
+          .mkHtmlWithText(justText("\n\n"))
+      def vulnerableProjects(projectIdToChanges: Map[String, Seq[Change]]): HtmlWithText =
         projectIdToChanges.toIndexedSeq.map{case (project, ch) => (projects.parseUnfriendlyNameGracefully(project), ch)}
           .sortBy{case (ri, _) => friendlyProjectNameString(ri).toLowerCase}
-          .map{case (project, changes) => "### "+friendlyProjectNameString(project)+"\n"+vulnChanges(changes)}
-          .mkString("\n\n")
-      def section(title: String, direction: Direction) = {
+          .map{case (project, changes) => heading(3)(friendlyProjectNameString(project))+vulnChanges(changes)}
+          .mkHtmlWithText(justText("\n\n"))
+      def section(title: String, direction: Direction): Option[HtmlWithText] = {
         groups(direction) match {
           case Seq() => None
-          case list => Some("## "+title + "\n\n" + vulnerableProjects(list.groupBy(_.projectName)))
+          case list => Some(heading(2)(title) + justText("\n") + vulnerableProjects(list.groupBy(_.projectName)))
         }
       }
+      val body = Seq(
+        section("Projects newly affected by a vulnerability", Direction.Added),
+        section("Projects no longer affected by a vulnerability", Direction.Removed)
+      ).flatten.mkHtmlWithText(justText("\n\n"))
       Email(
         subject = s"New changes in vulnerabilities (${changes.size}: +${groups(Direction.Added).size} -${groups(Direction.Removed).size})",
         to = Seq(getEmail(subscriber)),
         from = from,
-        bodyText = Some(Seq(
-          section("Projects newly affected by a vulnerability", Direction.Added),
-          section("Projects no longer affected by a vulnerability", Direction.Removed)
-        ).flatten.mkString("\n\n"))
-        //bodyHtml =  TODO
+        bodyText = Some(body.text),
+        bodyHtml = Some(body.html.toString)
       )
     }
   }
