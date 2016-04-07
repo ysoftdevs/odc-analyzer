@@ -73,9 +73,7 @@ final class DependencyCheckReportsProcessor @Inject() (
       )
 
       val unknownIdentifierTypes = allDependencies.flatMap(_._1.identifiers.map(_.identifierType)).toSet -- Set("maven", "cpe")
-      val failedReports = successfulResults.filter(x => x._2._1.state != "Successful" || x._2._1.buildState != "Successful")
       val extraWarnings = Seq[Option[Warning]](
-        if(failedReports.size > 0) Some(IdentifiedWarning("failed-reports", views.html.warnings.failedReports(failedReports.values.map{case (b, _ ,_) => b}.toSet, server), WarningSeverity.Error)) else None,
         if(unknownIdentifierTypes.size > 0) Some(IdentifiedWarning("unknown-identifier-types", views.html.warnings.unknownIdentifierType(unknownIdentifierTypes), WarningSeverity.Info)) else None,
         {
           val emptyResults = successfulResults.filter{case (k, (_, dir, _)) => dir.flatFiles.size < 1}

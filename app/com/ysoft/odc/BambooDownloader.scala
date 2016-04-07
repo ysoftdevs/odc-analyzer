@@ -3,7 +3,7 @@ package com.ysoft.odc
 import com.google.inject.Inject
 import com.google.inject.name.Named
 import org.ccil.cowan.tagsoup.jaxp.SAXFactoryImpl
-import play.api.libs.ws.{WS, WSAuthScheme, WSClient, WSRequest}
+import play.api.libs.ws.{WS, WSClient}
 import upickle.default._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -128,8 +128,16 @@ final class BambooDownloader @Inject()(@Named("bamboo-server-url") val server: S
     val resultsFuture = Future.traverse(projects){project =>
       downloadProjectReport(project, requiredVersions.get(project))
     }
-    resultsFuture.map{ results =>
-      val (successfulReportTries, failedReportTries) = results.partition(_._2.isSuccess)
+    resultsFuture.map{ originalResults =>
+      val buildFailureFilteredResults = originalResults.map{case (name, resultTry) =>
+        name -> resultTry.flatMap{ case result @ (build, _, _) =>
+          // Note that this is triggered only if the artifact directory exists.
+          // If it does not, it will throw “java.util.NoSuchElementException: key not found: Report results-XML” instead.
+          if (build.state != "Successful" || build.buildState != "Successful") Failure(new RuntimeException("failed build"))
+          else Success(result)
+        }
+      }
+      val (successfulReportTries, failedReportTries) = buildFailureFilteredResults.partition(_._2.isSuccess)
       val successfulReports = successfulReportTries.map{case (name, Success(data)) => name -> data; case _ => ???}.toMap
       val failedReports = failedReportTries.map{case (name, Failure(data)) => name -> data; case _ => ???}.toMap
       (successfulReports, failedReports)
