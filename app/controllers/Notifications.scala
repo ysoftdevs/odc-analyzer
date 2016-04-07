@@ -4,7 +4,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
 import com.ysoft.concurrent.FutureLock._
-import com.ysoft.odc.{Absolutizer, SetDiff}
+import com.ysoft.odc.{Absolutizer, ArtifactFile, ArtifactItem, SetDiff}
 import controllers.Statistics.LibDepStatistics
 import models.{EmailMessageId, ExportedVulnerability}
 import play.api.i18n.MessagesApi
@@ -50,8 +50,8 @@ class Notifications @Inject()(
   //@inline private def filterMissingTickets(missingTickets: Set[String]) = missingTickets take 1 // for debug purposes
   @inline private def filterMissingTickets(missingTickets: Set[String]) = missingTickets // for production purposes
 
-  def notifyVulnerabilities[T](
-    lds: LibDepStatistics, ep: notificationService.ExportPlatform[T, _], projects: ProjectsWithReports
+  private def notifyVulnerabilities[T](
+    lds: LibDepStatistics, failedProjects: FailedProjects, ep: notificationService.ExportPlatform[T, _], projects: ProjectsWithReports
   )(
     reportVulnerability: (Vulnerability, Set[GroupedDependency]) => Future[ExportedVulnerability[T]]
   )(
@@ -69,8 +69,10 @@ class Notifications @Inject()(
         val oldProjectIdsSet = existingTicketsProjects(ticketId)
         val exportedVulnerability = ticketsById(ticketId)
         val vulnerabilityName = exportedVulnerability.vulnerabilityName
-        val newProjectIdsSet = vulnerabilitiesByName(vulnerabilityName)._2.flatMap(_.projects).map(_.fullId)
-        val diff = new SetDiff(oldSet = oldProjectIdsSet, newSet = newProjectIdsSet)
+        val failedOldProjects = oldProjectIdsSet.filter(failedProjects.isFailed)
+        val newKnownProjectIdsSet = vulnerabilitiesByName(vulnerabilityName)._2.flatMap(_.projects).map(_.fullId)
+        val allNewProjectIdsSet = newKnownProjectIdsSet ++ failedOldProjects  //If build for a project currently fails and it used to be affected, consider it as still affected. This prevents sudden switching these two states.
+        val diff = new SetDiff(oldSet = oldProjectIdsSet, newSet = allNewProjectIdsSet)
         if(diff.nonEmpty) {
           reportChangedProjectsForVulnerability(lds.vulnerabilitiesByName(vulnerabilityName), diff, exportedVulnerability.ticket).flatMap { _ =>
             ep.changeProjects(ticketId, diff, projects)
@@ -90,6 +92,38 @@ class Notifications @Inject()(
     } yield (missingTickets, newTicketIds, projectUpdates.toSet: Set[Any])
   }
 
+  private final class FailedProjects(val failedProjectsSet: Set[String]){
+    def isFailed(projectFullId: String): Boolean = {
+      val projectBareId = projectFullId.takeWhile(_ != '/')
+      failedProjectsSet contains projectBareId
+    }
+
+  }
+
+  private object FailedProjects {
+    // TODO: Move elsewhere
+    def combineFails(failedReportDownloads: Map[String, Throwable], parsingFailures: Map[ReportInfo, Throwable], failedBuilds: Map[String, (Build, ArtifactItem, ArtifactFile)]): FailedProjects = {
+      /*
+      Fail can happen at multiple places:
+      1. Build cannot be downloaded (auth error, connection error, …) or is failed (failedReportDownloads)
+      2. Build can be downloaded, but it is failed (failedBuilds) – as this is source-specific, this will be probably moved to Downloader's responsibility.
+      3. Build is successful and can be downloaded, but it cannot be parsed (parsingFailures)
+      */
+      val failedProjectsSet = failedReportDownloads.keySet ++ parsingFailures.keySet.map(_.projectId) ++ failedBuilds.keySet
+      new FailedProjects(failedProjectsSet)
+    }
+  }
+
+  import FailedProjects.combineFails
+
+  private def exportFailedReports(lds: LibDepStatistics, failed: FailedProjects): Future[Unit] = {
+    if(failed.failedProjectsSet.nonEmpty){
+      ???
+    }else{
+      Fut(())
+    }
+  }
+
   def cron(key: String, purgeCache: Boolean) = Action.async{
     if(Crypto.constantTimeEquals(key, config.getString("yssdc.cronKey").get)){
       futureLock(cronJobIsRunning) {
@@ -98,20 +132,24 @@ class Notifications @Inject()(
         }
         val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
         for {
+          // TODO: process failedReports, parsedReports.failedAnalysises and successfulResults.filter(x => x._2._1.state != "Successful" || x._2._1.buildState != "Successful")
           (successfulReports, failedReports) <- resultsFuture
           libraries <- librariesService.all
           parsedReports = dependencyCheckReportsParser.parseReports(successfulReports)
           lds = LibDepStatistics(dependencies = parsedReports.groupedDependencies.toSet, libraries = libraries.toSet)
-          issuesExportResultFuture = exportToIssueTracker(lds, parsedReports.projectsReportInfo)
-          diffDbExportResultFuture = exportToDiffDb(lds, parsedReports.projectsReportInfo)
-          mailExportResultFuture = emailExportServiceOption.map(_.exportType) match{
-            case Some(EmailExportType.Vulnerabilities) => exportToEmail(lds, parsedReports.projectsReportInfo).map((_: (_, _, _)) => ())
+          failed = combineFails(failedReports, parsedReports.failedAnalysises)
+          failedReportsExportFuture = Fut(()) // TODO: exportFailedReports(lds, failed)
+          issuesExportResultFuture = exportToIssueTracker(lds, failed, parsedReports.projectsReportInfo)
+          diffDbExportResultFuture = exportToDiffDb(lds, failed, parsedReports.projectsReportInfo)
+          mailExportResultFuture = emailExportServiceOption.map(_.exportType) match {
+            case Some(EmailExportType.Vulnerabilities) => exportToEmail(lds, failed, parsedReports.projectsReportInfo).map((_: (_, _, _)) => ())
             case Some(EmailExportType.Digest) => diffDbExportResultFuture.flatMap(_ => exportToEmailDigest(lds, parsedReports.projectsReportInfo))
             case None => Future(())
           }
           (missingTickets, newTicketIds, updatedTickets) <- issuesExportResultFuture
           (_: Unit) <- mailExportResultFuture
           (missingVulns, newVulnIds, updatedVulns) <- diffDbExportResultFuture
+          failedReportsExport <- failedReportsExportFuture
         } yield Ok(
           missingTickets.mkString("\n") + "\n\n" + newTicketIds.mkString("\n") + updatedTickets.toString
             //"\n\n" +
@@ -127,8 +165,8 @@ class Notifications @Inject()(
 
   private def forService[S, T](serviceOption: Option[S])(f: S => Future[(Set[String], Set[T], Set[Any])]) = serviceOption.fold(Fut((Set[String](), Set[T](), Set[Any]())))(f)
 
-  private def exportToEmail(lds: LibDepStatistics, p: ProjectsWithReports) = forService(emailExportServiceOption){ emailExportService =>
-    notifyVulnerabilities[EmailMessageId](lds, notificationService.mailExport, p) { (vulnerability, dependencies) =>
+  private def exportToEmail(lds: LibDepStatistics, failedProjects: FailedProjects, p: ProjectsWithReports) = forService(emailExportServiceOption){ emailExportService =>
+    notifyVulnerabilities[EmailMessageId](lds, failedProjects, notificationService.mailExport, p) { (vulnerability, dependencies) =>
       emailExportService.mailForVulnerability(vulnerability, dependencies).flatMap(emailExportService.sendEmail).map(id => ExportedVulnerability(vulnerability.name, EmailMessageId(id), 0))
     }{ (vuln, diff, msgid) =>
       emailExportService.mailForVulnerabilityProjectsChange(vuln, msgid, diff, p).flatMap(emailExportService.sendEmail).map(_ => ())
@@ -136,16 +174,16 @@ class Notifications @Inject()(
   }
 
   // FIXME: In case of crash during export, one change might be exported multiple times. This can't be solved in e-mail exports, but it might be solved in issueTracker and diffDb exports.
-  private def exportToIssueTracker(lds: LibDepStatistics, p: ProjectsWithReports) = forService(issueTrackerServiceOption){ issueTrackerService =>
-    notifyVulnerabilities[String](lds, notificationService.issueTrackerExport, p) { (vulnerability, dependencies) =>
+  private def exportToIssueTracker(lds: LibDepStatistics, failedProjects: FailedProjects, p: ProjectsWithReports) = forService(issueTrackerServiceOption){ issueTrackerService =>
+    notifyVulnerabilities[String](lds, failedProjects, notificationService.issueTrackerExport, p) { (vulnerability, dependencies) =>
       issueTrackerService.reportVulnerability(vulnerability)
     }{ (vuln, diff, ticket) =>
       Fut(())
     }
   }
 
-  private def exportToDiffDb(lds: LibDepStatistics, p: ProjectsWithReports) = {
-    notifyVulnerabilities[String](lds, notificationService.diffDbExport, p){ (vulnerability, dependencies) =>
+  private def exportToDiffDb(lds: LibDepStatistics, failedProjects: FailedProjects, p: ProjectsWithReports) = {
+    notifyVulnerabilities[String](lds, failedProjects, notificationService.diffDbExport, p){ (vulnerability, dependencies) =>
       //?save_new_vulnerability
       val affectedProjects = dependencies.flatMap(_.projects)
       val diff = new SetDiff(Set(), affectedProjects)
