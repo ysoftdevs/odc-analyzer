@@ -102,14 +102,13 @@ class Notifications @Inject()(
 
   private object FailedProjects {
     // TODO: Move elsewhere
-    def combineFails(failedReportDownloads: Map[String, Throwable], parsingFailures: Map[ReportInfo, Throwable], failedBuilds: Map[String, (Build, ArtifactItem, ArtifactFile)]): FailedProjects = {
+    def combineFails(failedReportDownloads: Map[String, Throwable], parsingFailures: Map[ReportInfo, Throwable]): FailedProjects = {
       /*
       Fail can happen at multiple places:
       1. Build cannot be downloaded (auth error, connection error, …) or is failed (failedReportDownloads)
-      2. Build can be downloaded, but it is failed (failedBuilds) – as this is source-specific, this will be probably moved to Downloader's responsibility.
-      3. Build is successful and can be downloaded, but it cannot be parsed (parsingFailures)
+      2. Build is successful and can be downloaded, but it cannot be parsed (parsingFailures)
       */
-      val failedProjectsSet = failedReportDownloads.keySet ++ parsingFailures.keySet.map(_.projectId) ++ failedBuilds.keySet
+      val failedProjectsSet = failedReportDownloads.keySet ++ parsingFailures.keySet.map(_.projectId)
       new FailedProjects(failedProjectsSet)
     }
   }
