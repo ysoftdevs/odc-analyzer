@@ -46,6 +46,20 @@ yssdc{
         user = "…"
         password = "…"
       }
+      newProjectAddedTransitionName: "Add new project"
+      noRelevantProjectAffectedTransitionName: "No longer applicable"
+      ticketFormatVersion: 1 // Increment this when you reconfigure the export format. In a future version, it should cause update of the issues.
+      fields: {
+        cweId: "customfield_10100"
+        linkId: "customfield_10103"
+        severityId: "customfield_10101"
+        projectsId: "customfield_10200"
+        teamsId: "customfield_10105"
+        librariesId: "customfield_10110"
+        constantFields: {
+          "customfield_10102": {"id": "10100"}
+        }
+      }
     }
     # Optional section: email notifications
     email{

@@ -64,7 +64,6 @@ class Notifications @Inject()(
       existingTicketsIds = tickets.values.map(_._1).toSet
       ticketsById = tickets.values.map{case (id, ev) => id -> ev}.toMap
       existingTicketsProjects <- ep.projectsForTickets(existingTicketsIds)
-      _ = Logger.warn("existingTicketsProjects for "+ep+": "+existingTicketsProjects.filter(_._2.exists(_.toLowerCase.contains("wps"))).toString)
       projectUpdates <- Future.traverse(existingTicketsIds){ ticketId =>  // If we traversed over existingTicketsProjects, we would skip vulns with no projects
         val oldProjectIdsSet = existingTicketsProjects(ticketId)
         val exportedVulnerability = ticketsById(ticketId)
@@ -175,10 +174,13 @@ class Notifications @Inject()(
   // FIXME: In case of crash during export, one change might be exported multiple times. This can't be solved in e-mail exports, but it might be solved in issueTracker and diffDb exports.
   private def exportToIssueTracker(lds: LibDepStatistics, failedProjects: FailedProjects, p: ProjectsWithReports) = forService(issueTrackerServiceOption){ issueTrackerService =>
     notifyVulnerabilities[String](lds, failedProjects, notificationService.issueTrackerExport, p) { (vulnerability, dependencies) =>
-      issueTrackerService.reportVulnerability(vulnerability)
+      issueTrackerService.reportVulnerability(vulnerability, dependencies.flatMap{_.projects})
     }{ (vuln, diff, ticket) =>
-      Fut(())
-    }
+      issueTrackerService.updateVulnerability(vuln, diff.map(p.parseUnfriendlyNameGracefully), ticket)
+    }/*.flatMap{ v => <- Maybe this approach of migrating is completely wrong, because the issue tracker does not have access to the export DB.
+      // Perform the migration after main operations, propagate exceptions, but don't change the resulting value
+      issueTrackerService.migrateOldIssues().map((_: Unit) => v)
+    }*/
   }
 
   private def exportToDiffDb(lds: LibDepStatistics, failedProjects: FailedProjects, p: ProjectsWithReports) = {
