@@ -4,8 +4,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
 import com.ysoft.concurrent.FutureLock._
+import com.ysoft.odc.statistics.{FailedProjects, LibDepStatistics}
 import com.ysoft.odc.{Absolutizer, ArtifactFile, ArtifactItem, SetDiff}
-import controllers.Statistics.LibDepStatistics
 import models.{EmailMessageId, ExportedVulnerability}
 import play.api.i18n.MessagesApi
 import play.api.libs.Crypto
@@ -91,29 +91,6 @@ class Notifications @Inject()(
     } yield (missingTickets, newTicketIds, projectUpdates.toSet: Set[Any])
   }
 
-  private final class FailedProjects(val failedProjectsSet: Set[String]){
-    def isFailed(projectFullId: String): Boolean = {
-      val projectBareId = projectFullId.takeWhile(_ != '/')
-      failedProjectsSet contains projectBareId
-    }
-
-  }
-
-  private object FailedProjects {
-    // TODO: Move elsewhere
-    def combineFails(failedReportDownloads: Map[String, Throwable], parsingFailures: Map[ReportInfo, Throwable]): FailedProjects = {
-      /*
-      Fail can happen at multiple places:
-      1. Build cannot be downloaded (auth error, connection error, …) or is failed (failedReportDownloads)
-      2. Build is successful and can be downloaded, but it cannot be parsed (parsingFailures)
-      */
-      val failedProjectsSet = failedReportDownloads.keySet ++ parsingFailures.keySet.map(_.projectId)
-      new FailedProjects(failedProjectsSet)
-    }
-  }
-
-  import FailedProjects.combineFails
-
   private def exportFailedReports(lds: LibDepStatistics, failed: FailedProjects): Future[Unit] = {
     if(failed.failedProjectsSet.nonEmpty){
       ???
@@ -134,8 +111,8 @@ class Notifications @Inject()(
           (successfulReports, failedReports) <- resultsFuture
           libraries <- librariesService.all
           parsedReports = dependencyCheckReportsParser.parseReports(successfulReports)
-          lds = LibDepStatistics(dependencies = parsedReports.groupedDependencies.toSet, libraries = libraries.toSet)
-          failed = combineFails(failedReports, parsedReports.failedAnalysises)
+          lds = LibDepStatistics(dependencies = parsedReports.groupedDependencies.toSet, libraries = libraries.toSet, failedReportDownloads = failedReports, parsedReports = parsedReports)
+          failed = lds.failedProjects
           failedReportsExportFuture = Fut(()) // TODO: exportFailedReports(lds, failed)
           issuesExportResultFuture = exportToIssueTracker(lds, failed, parsedReports.projectsReportInfo)
           diffDbExportResultFuture = exportToDiffDb(lds, failed, parsedReports.projectsReportInfo)

@@ -3,8 +3,9 @@ package controllers
 import com.github.nscala_time.time.Imports._
 import com.google.inject.Inject
 import com.google.inject.name.Named
+import com.ysoft.odc.statistics.{LibDepStatistics, TagStatistics}
 import com.ysoft.odc.{ArtifactFile, ArtifactItem}
-import models.{Library, LibraryTag}
+import models.LibraryTag
 import org.joda.time.DateTime
 import play.api.i18n.MessagesApi
 import play.twirl.api.Txt
@@ -12,34 +13,6 @@ import services._
 import views.html.DefaultRequest
 
 import scala.concurrent.{ExecutionContext, Future}
-
-object Statistics{
-  case class LibDepStatistics(libraries: Set[(Int, Library)], dependencies: Set[GroupedDependency]){
-    def vulnerableRatio = vulnerableDependencies.size.toDouble / dependencies.size.toDouble
-    lazy val vulnerabilities: Set[Vulnerability] = dependencies.flatMap(_.vulnerabilities)
-    lazy val vulnerabilitiesByName = vulnerabilities.map(v => v.name -> v).toMap
-    lazy val vulnerabilityNames = vulnerabilities.map(_.name)
-    lazy val vulnerabilitiesToDependencies: Map[Vulnerability, Set[GroupedDependency]] = vulnerableDependencies.flatMap(dep =>
-      dep.vulnerabilities.map(vuln => (vuln, dep))
-    ).groupBy(_._1).mapValues(_.map(_._2)).map(identity)
-    vulnerableDependencies.flatMap(dep => dep.vulnerabilities.map(_ -> dep)).groupBy(_._1).mapValues(_.map(_._2)).map(identity)
-    vulnerableDependencies.flatMap(dep => dep.vulnerabilities.map(_ -> dep)).groupBy(_._1).mapValues(_.map(_._2)).map(identity)
-    lazy val vulnerableDependencies = dependencies.filter(_.isVulnerable)
-    lazy val (dependenciesWithCpe, dependenciesWithoutCpe) = dependencies.partition(_.hasCpe)
-    lazy val cpeRatio = dependenciesWithCpe.size.toDouble / dependencies.size.toDouble
-    lazy val weaknesses = vulnerabilities.flatMap(_.cweOption)
-    lazy val weaknessesFrequency = computeWeaknessesFrequency(vulnerabilities)
-  }
-  case class TagStatistics(tagRecord: (Int, LibraryTag), stats: LibDepStatistics){
-    def tag: LibraryTag = tagRecord._2
-    def tagId: Int = tagRecord._1
-  }
-
-  def computeWeaknessesFrequency(vulnerabilities: Set[Vulnerability]) = vulnerabilities.toSeq.map(_.cweOption).groupBy(identity).mapValues(_.size).map(identity).withDefaultValue(0)
-
-}
-
-import controllers.Statistics._
 
 class Statistics @Inject() (
   reportsParser: DependencyCheckReportsParser,
@@ -105,17 +78,19 @@ class Statistics @Inject() (
         val tagsFuture = tagsService.all
         val parsedReports = selection.result
         for{
-          tagStatistics <- statisticsForTags(parsedReports, tagsFuture)
+          tagStatistics <- statisticsForTags(parsedReports, failedResults, tagsFuture)
+          libraries <- librariesService.all
         } yield Ok(views.html.statistics.basic(
           tagStatistics = tagStatistics,
           projectsWithSelection = selection.projectsWithSelection,
-          parsedReports = parsedReports
+          parsedReports = parsedReports,
+          lds = LibDepStatistics(libraries.toSet, parsedReports.groupedDependencies.toSet, failedResults, parsedReports)
         ))
       }
     }
   }
 
-  def statisticsForTags(parsedReports: DependencyCheckReportsParser.Result, tagsFuture: Future[Seq[(Int, LibraryTag)]]): Future[Seq[Statistics.TagStatistics]] = {
+  def statisticsForTags(parsedReports: DependencyCheckReportsParser.Result, failedReports: Map[String, Throwable], tagsFuture: Future[Seq[(Int, LibraryTag)]]): Future[Seq[TagStatistics]] = {
     val librariesFuture = librariesService.byPlainLibraryIdentifiers(parsedReports.allDependencies.flatMap(_._1.plainLibraryIdentifiers).toSet)
     val libraryTagAssignmentsFuture = librariesFuture.flatMap{libraries => libraryTagAssignmentsService.forLibraries(libraries.values.map(_._1).toSet)}
     val tagsToLibrariesFuture = libraryTagAssignmentsService.tagsToLibraries(libraryTagAssignmentsFuture)
@@ -130,7 +105,15 @@ class Statistics @Inject() (
       val tagDependencies: Set[GroupedDependency] = tagLibraries.flatMap{case (_, lib) => librariesToDependencies(lib.plainLibraryIdentifier)}
       // TODO: vulnerabilities in the past
       if(tagLibraries.isEmpty) None
-      else Some(TagStatistics(tagRecord = tagRecord, stats = LibDepStatistics(libraries = tagLibraries, dependencies = tagDependencies)))
+      else Some(TagStatistics(
+        tagRecord = tagRecord,
+        stats = LibDepStatistics(
+          libraries = tagLibraries,
+          dependencies = tagDependencies,
+          failedReportDownloads = failedReports,
+          parsedReports = parsedReports
+        )
+      ))
     }
   }
 
@@ -142,10 +125,15 @@ class Statistics @Inject() (
         for{
           libraries <- librariesService.byPlainLibraryIdentifiers(parsedReports.allDependencies.flatMap(_._1.plainLibraryIdentifiers).toSet)
           tagOption <- tagIdOption.fold[Future[Option[(Int, LibraryTag)]]](Future.successful(None))(tagId => tagsService.getById(tagId).map(Some(_)))
-          statistics <- tagOption.fold(Future.successful(LibDepStatistics(dependencies = parsedReports.groupedDependencies.toSet, libraries = libraries.values.toSet))){ tag =>
-            statisticsForTags(parsedReports, Future.successful(Seq(tag))).map{
+          statistics <- tagOption.fold(Future.successful(LibDepStatistics(
+            dependencies = parsedReports.groupedDependencies.toSet,
+            libraries = libraries.values.toSet,
+            failedReportDownloads = failedResults,
+            parsedReports = parsedReports
+          ))){ tag =>
+            statisticsForTags(parsedReports, failedResults, Future.successful(Seq(tag))).map{
               case Seq(TagStatistics(_, stats)) => stats // statisticsForTags is designed for multiple tags, but we have just one…
-              case Seq() => LibDepStatistics(libraries = Set(), dependencies = Set()) // We don't want to crash when no dependencies are there…
+              case Seq() => LibDepStatistics(libraries = Set(), dependencies = Set(), failedReportDownloads = failedResults, parsedReports) // We don't want to crash when no dependencies are there…
             }
           }
         } yield Ok(views.html.statistics.vulnerabilities(

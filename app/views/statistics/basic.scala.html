@@ -1,10 +1,11 @@
+@import com.ysoft.odc.statistics.TagStatistics
 @(
     projectsWithSelection: ProjectsWithSelection,
-    tagStatistics: Seq[Statistics.TagStatistics],
+    lds: LibDepStatistics,
+    tagStatistics: Seq[TagStatistics],
     parsedReports: DependencyCheckReportsParser.Result
 )(implicit messagesApi: MessagesApi, requestHeader: DefaultRequest)
 @import com.ysoft.odc.CWE
-@import controllers.Statistics.TagStatistics
 @import play.api.libs.json.{JsNull, JsString}
 @import scala.language.implicitConversions
 @implicitTagStatistics(ts: TagStatistics) = @{ts.stats}
@@ -52,7 +53,7 @@
     }
 
 
-    <div id="weakness" data-data='@{plotData(Statistics.computeWeaknessesFrequency(parsedReports.groupedDependencies.flatMap(_.vulnerabilities).toSet))}'></div>
+    <div id="weakness" data-data='@{plotData(lds.weaknessesFrequency)}'></div>
     <script type="text/javascript">
 
     var WeaknessIdentifier = function(brief, verbose){

@@ -1,6 +1,6 @@
 import com.mohiva.play.silhouette.api.Environment
 import com.mohiva.play.silhouette.impl.authenticators.CookieAuthenticator
-import models.{User, SnoozeInfo}
+import models.{SnoozeInfo, User}
 
 /**
  * Created by user on 7/15/15.
@@ -16,6 +16,7 @@ package object controllers {
   type DateTime = org.joda.time.DateTime
   type SnoozesInfo = Map[String, SnoozeInfo]
   type AuthEnv = Environment[User, CookieAuthenticator]
+  type LibDepStatistics = com.ysoft.odc.statistics.LibDepStatistics
 
 
   val NormalUrlPattern = """^(http(s?)|ftp(s?))://.*""".r
