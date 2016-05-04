@@ -47,7 +47,7 @@
     }
 }
 
-@conditionalList(vulnerableDependencies, s"Vulnerable dependencies ${(Seq(None) ++ vulnerableDependencies.map(_.maxCvssScore)).max.map{maxScore => s"(max CVSS: $maxScore)"}.getOrElse("")}", "vulnerable", versions = versions) {
+@* @conditionalList(vulnerableDependencies, s"Vulnerable dependencies ${(Seq(None) ++ vulnerableDependencies.map(_.maxCvssScore)).max.map{maxScore => s"(max CVSS: $maxScore)"}.getOrElse("")}", "vulnerable", versions = versions) {
     @dependencyList("vulnerable", vulnerableDependencies.sortBy(d => (d.maxCvssScore.map(-_), d.cpeIdentifiers.map(_.toCpeIdentifierOption.get).toSeq.sorted.mkString(" "))), None)
 }
 @* groupedDependencyList("Unclassified dependencies", "unclassified")(unclassifiedDependencies) *@
