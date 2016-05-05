@@ -131,16 +131,16 @@ class Application @Inject() (
         Logger.debug("footprint: "+ObjectGraphMeasurer.measure((vulnerableDependencies, allWarnings, groupedDependencies)))
         //Logger.debug("footprint: "+ObjectGraphMeasurer.measure(Array((vulnerableDependencies, allWarnings, groupedDependencies))))*/
         Ok(views.html.index(
-          vulnerableDependencies = vulnerableDependencies,
+          //vulnerableDependencies = vulnerableDependencies,
           warnings = allWarnings,
-          librariesForTagsWithWarning = librariesForTagsWithWarning,
-          unclassifiedDependencies = unclassifiedDependencies,
-          groupedDependencies = groupedDependencies,
-          dependenciesForLibraries = groupedDependencies.flatMap(group =>
+          //librariesForTagsWithWarning = librariesForTagsWithWarning,
+          //unclassifiedDependencies = unclassifiedDependencies,
+          //groupedDependencies = groupedDependencies,
+          /*dependenciesForLibraries = groupedDependencies.flatMap(group =>
             group.identifiers.flatMap(_.toLibraryIdentifierOption).map(_ -> group)
-          ).groupBy(_._1).mapValues(_.map(_._2).toSet).map(identity),
-          allTags = allTags,
-          relatedDependenciesTags = relatedDependenciesTags,
+          ).groupBy(_._1).mapValues(_.map(_._2).toSet).map(identity),*/
+          //allTags = allTags,
+          //relatedDependenciesTags = relatedDependenciesTags,
           lastRefreshTime = lastRefreshTime,
           versions = requiredVersions
         ))

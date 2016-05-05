@@ -1,12 +1,12 @@
 @(
-    vulnerableDependencies: Seq[GroupedDependency],
-    unclassifiedDependencies: Seq[(Int, Library)],
+    //vulnerableDependencies: Seq[GroupedDependency],
+    //unclassifiedDependencies: Seq[(Int, Library)],
     warnings: Seq[Warning],
-    groupedDependencies: Seq[GroupedDependency],
-    dependenciesForLibraries: Map[PlainLibraryIdentifier, Set[GroupedDependency]],
-    allTags: Seq[(Int, LibraryTag)],
-    relatedDependenciesTags: Map[Int, Set[LibraryTagAssignment]],
-    librariesForTagsWithWarning: SortedMap[(Int, LibraryTag), Seq[(Int, Library)]],
+    //groupedDependencies: Seq[GroupedDependency],
+    //dependenciesForLibraries: Map[PlainLibraryIdentifier, Set[GroupedDependency]],
+    //allTags: Seq[(Int, LibraryTag)],
+    //relatedDependenciesTags: Map[Int, Set[LibraryTagAssignment]],
+    //librariesForTagsWithWarning: SortedMap[(Int, LibraryTag), Seq[(Int, Library)]],
     lastRefreshTime: DateTime,
     versions: Map[String, Int]
 )(implicit req: DefaultRequest, snoozes: SnoozesInfo , messages: Messages)
