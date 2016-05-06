@@ -10,7 +10,7 @@ import scala.reflect.ClassTag
 import scala.util.Success
 
 class ProjectReportsProvider @Inject() (
-                                         bambooDownloader: Downloader,
+                                         downloader: Downloader,
                                          cache: CacheApi,
                                          projects: Projects
                                          )(implicit executionContext: ExecutionContext){
@@ -32,7 +32,7 @@ class ProjectReportsProvider @Inject() (
   }
 
   def resultsForVersions(versions: Map[String, Int]) = {
-    def get = {val time = DateTime.now; bambooDownloader.downloadProjectReports(projects.projectSet, versions).map(time -> _)}
+    def get = {val time = DateTime.now; downloader.downloadProjectReports(projects.projectSet, versions).map(time -> _)}
     val allFuture = getOrElseFuture(bambooCacheKey(versions)){println("CACHE MISS"); get}
     (allFuture.map(_._1), allFuture.map(_._2))
   }
