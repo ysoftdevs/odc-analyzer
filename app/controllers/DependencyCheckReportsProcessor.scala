@@ -76,10 +76,6 @@ final class DependencyCheckReportsProcessor @Inject() (
       val extraWarnings = Seq[Option[Warning]](
         if(unknownIdentifierTypes.size > 0) Some(IdentifiedWarning("unknown-identifier-types", views.html.warnings.unknownIdentifierType(unknownIdentifierTypes), WarningSeverity.Info)) else None,
         {
-          val emptyResults = successfulResults.filter{case (k, (_, dir, _)) => dir.flatFiles.size < 1}
-          if(emptyResults.nonEmpty) Some(IdentifiedWarning("empty-results", views.html.warnings.emptyResults(emptyResults.values.map{case (build, _, _) => build}.toSeq, server), WarningSeverity.Warning)) else None
-        },
-        {
           val resultsWithErrorMessages = successfulResults.filter{case (k, (_, _, log)) => log.dataString.lines.exists(l => (l.toLowerCase startsWith "error") || (l.toLowerCase contains "[error]"))}
           if(resultsWithErrorMessages.nonEmpty) Some(IdentifiedWarning("results-with-error-messages", views.html.warnings.resultsWithErrorMessages(resultsWithErrorMessages.values.map{case (build, _, _) => build}.toSeq, server), WarningSeverity.Error)) else None
         },

@@ -130,10 +130,11 @@ final class BambooDownloader @Inject()(@Named("bamboo-server-url") val server: S
     }
     resultsFuture.map{ originalResults =>
       val buildFailureFilteredResults = originalResults.map{case (name, resultTry) =>
-        name -> resultTry.flatMap{ case result @ (build, _, _) =>
+        name -> resultTry.flatMap{ case result @ (build, reportFiles, _) =>
           // Note that this is triggered only if the artifact directory exists.
           // If it does not, it will throw “java.util.NoSuchElementException: key not found: Report results-XML” instead.
           if (build.state != "Successful" || build.buildState != "Successful") Failure(new RuntimeException("failed build"))
+          else if (reportFiles.flatFiles.isEmpty) Failure(new RuntimeException("no output files"))
           else Success(result)
         }
       }
