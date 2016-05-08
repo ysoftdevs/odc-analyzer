@@ -90,7 +90,7 @@ private final case class BadFilter(pattern: String) extends Filter{
 object DependencyCheckReportsParser{
   final case class ResultWithSelection(result: Result, projectsWithSelection: ProjectsWithSelection)
   final case class Result(bareFlatReports: Map[String, Analysis], bareFailedAnalysises: Map[String, Throwable], projects: Projects /*TODO: maybe rename to rootProjects*/, failedReportDownloads: Map[String, Throwable]){
-    lazy val projectsReportInfo = new ProjectsWithReports(projects, bareFlatReports.keySet ++ bareFailedAnalysises.keySet) // TODO: consider renaming to projectsWithReports
+    lazy val projectsReportInfo = new ProjectsWithReports(projects, bareFlatReports.keySet ++ bareFailedAnalysises.keySet ++ failedReportDownloads.keySet) // TODO: consider renaming to projectsWithReports
     lazy val flatReports: Map[ReportInfo, Analysis] = bareFlatReports.map{case (k, v) => projectsReportInfo.reportIdToReportInfo(k) -> v}
     lazy val failedAnalysises: Map[ReportInfo, Throwable] = bareFailedAnalysises.map{case (k, v) => projectsReportInfo.reportIdToReportInfo(k) -> v}
     lazy val failedProjects = FailedProjects.combineFails(parsingFailures = failedAnalysises, failedReportDownloads = failedReportDownloads)
