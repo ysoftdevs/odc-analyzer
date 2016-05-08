@@ -5,6 +5,7 @@ import com.google.inject.Inject
 import com.google.inject.name.Named
 import com.ysoft.odc.statistics.{LibDepStatistics, TagStatistics}
 import com.ysoft.odc.{ArtifactFile, ArtifactItem}
+import controllers.DependencyCheckReportsParser.ResultWithSelection
 import models.LibraryTag
 import org.joda.time.DateTime
 import play.api.i18n.MessagesApi
@@ -39,7 +40,8 @@ class Statistics @Inject() (
   import secureRequestConversion._
 
 
-  private def select(successfulResults: Map[String, (Build, ArtifactItem, ArtifactFile)], selectorOption: Option[String]) = dependencyCheckReportsParser.parseReports(successfulResults).selection(selectorOption)
+  private def select(allResults: (Map[String, (Build, ArtifactItem, ArtifactFile)], Map[String, Throwable]), selectorOption: Option[String]): Option[ResultWithSelection] = select(allResults._1, allResults._2, selectorOption)
+  private def select(successfulResults: Map[String, (Build, ArtifactItem, ArtifactFile)], failedResults: Map[String, Throwable], selectorOption: Option[String]): Option[ResultWithSelection] = dependencyCheckReportsParser.parseReports(successfulResults, failedResults).selection(selectorOption)
 
   def searchVulnerableSoftware(versionlessCpes: Seq[String], versionOption: Option[String]) = ReadAction.async{ implicit req =>
     if(versionlessCpes.isEmpty){
@@ -71,26 +73,26 @@ class Statistics @Inject() (
     }
   }
 
-  def basic(projectOption: Option[String]) = ReadAction.async{ implicit req =>
+  def basic(selectorOption: Option[String]) = ReadAction.async{ implicit req =>
     val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
-    resultsFuture flatMap { case (successfulResults, failedResults) =>
-      select(successfulResults, projectOption).fold(Future.successful(notFound())){ selection =>
+    resultsFuture flatMap { allResults =>
+      select(allResults, selectorOption).fold(Future.successful(notFound())){ selection =>
         val tagsFuture = tagsService.all
         val parsedReports = selection.result
         for{
-          tagStatistics <- statisticsForTags(parsedReports, failedResults, tagsFuture)
+          tagStatistics <- statisticsForTags(parsedReports, tagsFuture)
           libraries <- librariesService.all
         } yield Ok(views.html.statistics.basic(
           tagStatistics = tagStatistics,
           projectsWithSelection = selection.projectsWithSelection,
           parsedReports = parsedReports,
-          lds = LibDepStatistics(libraries.toSet, parsedReports.groupedDependencies.toSet, failedResults, parsedReports)
+          lds = LibDepStatistics(libraries.toSet, parsedReports.groupedDependencies.toSet, selection.result.failedReportDownloads, parsedReports)
         ))
       }
     }
   }
 
-  def statisticsForTags(parsedReports: DependencyCheckReportsParser.Result, failedReports: Map[String, Throwable], tagsFuture: Future[Seq[(Int, LibraryTag)]]): Future[Seq[TagStatistics]] = {
+  def statisticsForTags(parsedReports: DependencyCheckReportsParser.Result, tagsFuture: Future[Seq[(Int, LibraryTag)]]): Future[Seq[TagStatistics]] = {
     val librariesFuture = librariesService.byPlainLibraryIdentifiers(parsedReports.allDependencies.flatMap(_._1.plainLibraryIdentifiers).toSet)
     val libraryTagAssignmentsFuture = librariesFuture.flatMap{libraries => libraryTagAssignmentsService.forLibraries(libraries.values.map(_._1).toSet)}
     val tagsToLibrariesFuture = libraryTagAssignmentsService.tagsToLibraries(libraryTagAssignmentsFuture)
@@ -110,7 +112,7 @@ class Statistics @Inject() (
         stats = LibDepStatistics(
           libraries = tagLibraries,
           dependencies = tagDependencies,
-          failedReportDownloads = failedReports,
+          failedReportDownloads = parsedReports.failedReportDownloads,
           parsedReports = parsedReports
         )
       ))
@@ -119,8 +121,8 @@ class Statistics @Inject() (
 
   def vulnerabilities(projectOption: Option[String], tagIdOption: Option[Int]) = ReadAction.async {implicit req =>
     val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
-    resultsFuture flatMap { case (successfulResults, failedResults) =>
-      select(successfulResults, projectOption).fold(Future.successful(notFound())){ selection =>
+    resultsFuture flatMap { allResults =>
+      select(allResults, projectOption).fold(Future.successful(notFound())){ selection =>
         val parsedReports = selection.result
         for{
           libraries <- librariesService.byPlainLibraryIdentifiers(parsedReports.allDependencies.flatMap(_._1.plainLibraryIdentifiers).toSet)
@@ -128,12 +130,12 @@ class Statistics @Inject() (
           statistics <- tagOption.fold(Future.successful(LibDepStatistics(
             dependencies = parsedReports.groupedDependencies.toSet,
             libraries = libraries.values.toSet,
-            failedReportDownloads = failedResults,
+            failedReportDownloads = selection.result.failedReportDownloads,
             parsedReports = parsedReports
           ))){ tag =>
-            statisticsForTags(parsedReports, failedResults, Future.successful(Seq(tag))).map{
+            statisticsForTags(parsedReports, Future.successful(Seq(tag))).map{
               case Seq(TagStatistics(_, stats)) => stats // statisticsForTags is designed for multiple tags, but we have just one…
-              case Seq() => LibDepStatistics(libraries = Set(), dependencies = Set(), failedReportDownloads = failedResults, parsedReports) // We don't want to crash when no dependencies are there…
+              case Seq() => LibDepStatistics(libraries = Set(), dependencies = Set(), failedReportDownloads = selection.result.failedReportDownloads, parsedReports) // We don't want to crash when no dependencies are there…
             }
           }
         } yield Ok(views.html.statistics.vulnerabilities(
@@ -145,10 +147,10 @@ class Statistics @Inject() (
     }
   }
 
-  def vulnerability(name: String, projectOption: Option[String]) = ReadAction.async { implicit req =>
+  def vulnerability(name: String, selectorOption: Option[String]) = ReadAction.async { implicit req =>
     val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
-    resultsFuture flatMap { case (successfulResults, failedResults) =>
-      select(successfulResults, projectOption).fold(Future.successful(notFound())){ selection =>
+    resultsFuture flatMap { allResults =>
+      select(allResults, selectorOption).fold(Future.successful(notFound())){ selection =>
         val relevantReports = selection.result
         val vulns = relevantReports.vulnerableDependencies.flatMap(dep => dep.vulnerabilities.map(vuln => (vuln, dep))).groupBy(_._1.name).mapValues{case vulnsWithDeps =>
           val (vulnSeq, depSeq) = vulnsWithDeps.unzip
@@ -186,10 +188,10 @@ class Statistics @Inject() (
     }
   }
 
-  def vulnerableLibraries(project: Option[String]) = ReadAction.async { implicit req =>
+  def vulnerableLibraries(selectorOption: Option[String]) = ReadAction.async { implicit req =>
     val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
-    resultsFuture flatMap { case (successfulResults, failedResults) =>
-      select(successfulResults, project).fold(Future.successful(notFound())){selection =>
+    resultsFuture flatMap { allResults =>
+      select(allResults, selectorOption).fold(Future.successful(notFound())){ selection =>
         val reports = selection.result
         Future.successful(Ok(views.html.statistics.vulnerableLibraries(
           projectsWithSelection = selection.projectsWithSelection,
@@ -200,10 +202,10 @@ class Statistics @Inject() (
     }
   }
 
-  def allLibraries(project: Option[String]) = ReadAction.async { implicit req =>
+  def allLibraries(selectorOption: Option[String]) = ReadAction.async { implicit req =>
     val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
-    resultsFuture flatMap { case (successfulResults, failedResults) =>
-      select(successfulResults, project).fold(Future.successful(notFound())){selection =>
+    resultsFuture flatMap { allResults =>
+      select(allResults, selectorOption).fold(Future.successful(notFound())){ selection =>
         Future.successful(Ok(views.html.statistics.allLibraries(
           projectsWithSelection = selection.projectsWithSelection,
           allDependencies = selection.result.groupedDependencies
@@ -212,10 +214,10 @@ class Statistics @Inject() (
     }
   }
 
-  def allGavs(project: Option[String]) = ReadAction.async { implicit req =>
+  def allGavs(selectorOption: Option[String]) = ReadAction.async { implicit req =>
     val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
-    resultsFuture flatMap { case (successfulResults, failedResults) =>
-      select(successfulResults, project).fold(Future.successful(notFound())){selection =>
+    resultsFuture flatMap { allResults =>
+      select(allResults, selectorOption).fold(Future.successful(notFound())){ selection =>
         Future.successful(Ok(Txt(
           selection.result.groupedDependencies.flatMap(_.mavenIdentifiers).toSet.toIndexedSeq.sortBy((id: Identifier) => (id.identifierType, id.name)).map(id => id.name.split(':') match {
             case Array(g, a, v) =>

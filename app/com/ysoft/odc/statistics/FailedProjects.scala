@@ -11,7 +11,7 @@ final class FailedProjects(val failedProjectsSet: Set[String]){
 }
 
 object FailedProjects {
-  private[statistics] def combineFails(failedReportDownloads: Map[String, Throwable], parsingFailures: Map[ReportInfo, Throwable]): FailedProjects = {
+  def combineFails(failedReportDownloads: Map[String, Throwable], parsingFailures: Map[ReportInfo, Throwable]): FailedProjects = {
     /*
     Fail can happen at multiple places:
     1. Build cannot be downloaded (auth error, connection error, …) or is failed (failedReportDownloads)

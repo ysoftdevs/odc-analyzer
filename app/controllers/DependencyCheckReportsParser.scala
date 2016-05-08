@@ -4,6 +4,7 @@ import java.net.URLEncoder
 
 import com.google.inject.Inject
 import com.ysoft.odc._
+import com.ysoft.odc.statistics.FailedProjects
 import controllers.DependencyCheckReportsParser.Result
 import models.PlainLibraryIdentifier
 import play.api.Logger
@@ -31,7 +32,12 @@ private final case class ProjectFilter(project: ReportInfo) extends Filter{
     val newFlatReports = f(r.flatReports)
     val newFailedAnalysises = f(r.failedAnalysises)
     if(newFlatReports.isEmpty && newFailedAnalysises.isEmpty) None
-    else Some(Result(bareFlatReports = newFlatReports, bareFailedAnalysises = newFailedAnalysises, projects = r.projects))
+    else Some(Result(
+      bareFlatReports = newFlatReports,
+      bareFailedAnalysises = newFailedAnalysises,
+      projects = r.projects,
+      failedReportDownloads = r.failedReportDownloads // TODO: consider filtering of failedReportDownloads
+    ))
   }
   override def selector = Some(s"project:${project.fullId}")
 }
@@ -44,14 +50,22 @@ private final case class TeamFilter(team: Team) extends Filter{
       case other => sys.error("some duplicate value: "+other)
     }.map(identity)
     val ProjectName = """^(.*): (.*)$""".r
-    val rootProjectReports = reportInfoByFriendlyProjectNameMap.collect{case (ProjectName(rootProject, subproject), v) => (rootProject, v)}.groupBy(_._1).mapValues(_.map(_._2))
+    val failedProjectsFriendlyNames = r.failedProjects.failedProjectsSet.map(r.projectsReportInfo.parseUnfriendlyName).map(_.projectName)
+    println(failedProjectsFriendlyNames)
+    val rootProjectReports = reportInfoByFriendlyProjectNameMap.collect{ case (ProjectName(rootProject, subproject), v) =>
+      (rootProject, v)
+    }.groupBy(_._1).mapValues(_.values).withDefault(name =>
+      if(failedProjectsFriendlyNames contains name) Seq()
+      else sys.error("Unknown project: "+name)
+    )
     def reportInfoByFriendlyProjectName(fpn: String) = reportInfoByFriendlyProjectNameMap.get(fpn).map(Set(_)).getOrElse(rootProjectReports(fpn.takeWhile(_ != ':')))
     val reportInfos = team.projectNames.flatMap(reportInfoByFriendlyProjectName)
     def submap[T](m: Map[String, T]) = reportInfos.toSeq.flatMap(ri => m.get(ri.fullId).map(ri.fullId -> _) ).toMap
     Some(Result(
       bareFlatReports = submap(r.bareFlatReports),
       bareFailedAnalysises = submap(r.bareFailedAnalysises),
-      projects = r.projects
+      projects = r.projects,
+      failedReportDownloads = r.failedReportDownloads // TODO: consider filtering of failedReportDownloads
     ))
   }
   override def descriptionHtml: Html = views.html.filters.team(team.id)
@@ -75,10 +89,11 @@ private final case class BadFilter(pattern: String) extends Filter{
 
 object DependencyCheckReportsParser{
   final case class ResultWithSelection(result: Result, projectsWithSelection: ProjectsWithSelection)
-  final case class Result(bareFlatReports: Map[String, Analysis], bareFailedAnalysises: Map[String, Throwable], projects: Projects /*TODO: maybe rename to rootProjects*/){
+  final case class Result(bareFlatReports: Map[String, Analysis], bareFailedAnalysises: Map[String, Throwable], projects: Projects /*TODO: maybe rename to rootProjects*/, failedReportDownloads: Map[String, Throwable]){
     lazy val projectsReportInfo = new ProjectsWithReports(projects, bareFlatReports.keySet ++ bareFailedAnalysises.keySet) // TODO: consider renaming to projectsWithReports
     lazy val flatReports: Map[ReportInfo, Analysis] = bareFlatReports.map{case (k, v) => projectsReportInfo.reportIdToReportInfo(k) -> v}
     lazy val failedAnalysises: Map[ReportInfo, Throwable] = bareFailedAnalysises.map{case (k, v) => projectsReportInfo.reportIdToReportInfo(k) -> v}
+    lazy val failedProjects = FailedProjects.combineFails(parsingFailures = failedAnalysises, failedReportDownloads = failedReportDownloads)
     lazy val allDependencies = flatReports.toSeq.flatMap(r => r._2.dependencies.map(_ -> r._1))
     lazy val groupedDependencies = allDependencies.groupBy(_._1.hashes).values.map(GroupedDependency(_)).toSeq
     lazy val groupedDependenciesByPlainLibraryIdentifier: Map[PlainLibraryIdentifier, Set[GroupedDependency]] =
@@ -109,7 +124,7 @@ object DependencyCheckReportsParser{
 
 final class DependencyCheckReportsParser @Inject() (cache: CacheApi, projects: Projects) {
 
-  def parseReports(successfulResults: Map[String, (Build, ArtifactItem, ArtifactFile)]) = {
+  def parseReports(successfulResults: Map[String, (Build, ArtifactItem, ArtifactFile)], failedReportDownloads: Map[String, Throwable]) = {
     val rid = math.random.toString  // for logging
     @volatile var parseFailedForSomeAnalysis = false
     val deepReportsTriesIterable: Iterable[Map[String, Try[Analysis]]] = for((k, (build, data, log)) <- successfulResults) yield {
@@ -140,7 +155,7 @@ final class DependencyCheckReportsParser @Inject() (cache: CacheApi, projects: P
     val failedAnalysises = deepReportsAndFailuresIterable.map(_._2).toSeq.flatten.toMap
     val flatReports = deepSuccessfulReports.flatten.toMap
     Logger.debug(s"[$rid] parse finished")
-    Result(flatReports, failedAnalysises, projects)
+    Result(flatReports, failedAnalysises, projects, failedReportDownloads = failedReportDownloads)
   }
 
 }

@@ -42,7 +42,7 @@ class Notifications @Inject()(
       (successfulReports, failedReports) <- resultsFuture
       myWatches <- myWatchesFuture
     } yield {
-      val projects = dependencyCheckReportsParser.parseReports(successfulReports).projectsReportInfo.sortedReportsInfo
+      val projects = dependencyCheckReportsParser.parseReports(successfulReports, failedReports).projectsReportInfo.sortedReportsInfo
       Ok(views.html.notifications.index(projects, myWatches))
     }
   }
@@ -110,7 +110,7 @@ class Notifications @Inject()(
           // TODO: process failedReports, parsedReports.failedAnalysises and successfulResults.filter(x => x._2._1.state != "Successful" || x._2._1.buildState != "Successful")
           (successfulReports, failedReports) <- resultsFuture
           libraries <- librariesService.all
-          parsedReports = dependencyCheckReportsParser.parseReports(successfulReports)
+          parsedReports = dependencyCheckReportsParser.parseReports(successfulReports, failedReports)
           lds = LibDepStatistics(dependencies = parsedReports.groupedDependencies.toSet, libraries = libraries.toSet, failedReportDownloads = failedReports, parsedReports = parsedReports)
           failed = lds.failedProjects
           failedReportsExportFuture = Fut(()) // TODO: exportFailedReports(lds, failed)

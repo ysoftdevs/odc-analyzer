@@ -46,7 +46,7 @@ final class DependencyCheckReportsProcessor @Inject() (
     requiredVersions: Map[String, Int]
   )(implicit requestHeader: DefaultRequest, snoozesInfo: SnoozesInfo, executionContext: ExecutionContext) = try{
     for((successfulResults, failedResults) <- resultsFuture) yield{
-      val reportResult = dependencyCheckReportsParser.parseReports(successfulResults)
+      val reportResult = dependencyCheckReportsParser.parseReports(successfulResults, failedResults)
       import reportResult.{allDependencies, failedAnalysises, flatReports, groupedDependencies, vulnerableDependencies}
       val now = DateTime.now
       val oldReportThreshold = now - 1.day
