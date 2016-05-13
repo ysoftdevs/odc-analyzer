@@ -8,6 +8,7 @@
     title = s"details for ${projectsWithSelection.projectNameText}${tagOption.map(_._2.name).fold("")(" and tag "+_)}",
     projectsOption = Some((projectsWithSelection, x => routes.Statistics.vulnerabilities(x, tagOption.map(_._1))))
 ){
+    @healthReport(statistics.failedProjects)
     We have @statistics.vulnerabilitiesToDependencies.size vulnerabilities
     of @statistics.vulnerabilitiesToDependencies.flatMap(_._2).toSet.size dependencies (@statistics.vulnerabilitiesToDependencies.flatMap(_._2.flatMap(_.plainLibraryIdentifiers)).toSet.size libraries).
     @if(!projectsWithSelection.isProjectSpecified){

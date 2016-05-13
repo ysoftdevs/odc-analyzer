@@ -43,7 +43,7 @@ class Notifications @Inject()(
       myWatches <- myWatchesFuture
     } yield {
       val projects = dependencyCheckReportsParser.parseReports(successfulReports, failedReports).projectsReportInfo.sortedReportsInfo
-      Ok(views.html.notifications.index(projects, myWatches))
+      Ok(views.html.notifications.index(projects, myWatches, failedReports.keySet))
     }
   }
 
@@ -111,7 +111,7 @@ class Notifications @Inject()(
           (successfulReports, failedReports) <- resultsFuture
           libraries <- librariesService.all
           parsedReports = dependencyCheckReportsParser.parseReports(successfulReports, failedReports)
-          lds = LibDepStatistics(dependencies = parsedReports.groupedDependencies.toSet, libraries = libraries.toSet, failedReportDownloads = failedReports, parsedReports = parsedReports)
+          lds = LibDepStatistics(dependencies = parsedReports.groupedDependencies.toSet, libraries = libraries.toSet, parsedReports = parsedReports)
           failed = lds.failedProjects
           failedReportsExportFuture = Fut(()) // TODO: exportFailedReports(lds, failed)
           issuesExportResultFuture = exportToIssueTracker(lds, failed, parsedReports.projectsReportInfo)

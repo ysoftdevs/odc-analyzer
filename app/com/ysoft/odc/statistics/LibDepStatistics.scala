@@ -23,12 +23,9 @@ case class LibDepStatistics(libraries: Set[(Int, Library)], dependencies: Set[Gr
 
 object LibDepStatistics{
   private def computeWeaknessesFrequency(vulnerabilities: Set[Vulnerability]) = vulnerabilities.toSeq.map(_.cweOption).groupBy(identity).mapValues(_.size).map(identity).withDefaultValue(0)
-  def apply(libraries: Set[(Int, Library)], dependencies: Set[GroupedDependency], failedReportDownloads: Map[String, Throwable], parsedReports: Result): LibDepStatistics = LibDepStatistics(
+  def apply(libraries: Set[(Int, Library)], dependencies: Set[GroupedDependency], parsedReports: Result): LibDepStatistics = LibDepStatistics(
     libraries = libraries,
     dependencies = dependencies,
-    failedProjects = FailedProjects.combineFails(
-      failedReportDownloads = failedReportDownloads,
-      parsingFailures = parsedReports.failedAnalysises
-    )
+    failedProjects = parsedReports.failedProjects
   )
 }

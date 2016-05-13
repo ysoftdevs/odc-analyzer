@@ -26,17 +26,19 @@ private final case class ProjectFilter(project: ReportInfo) extends Filter{
   override def descriptionText: String = s"project ${friendlyProjectNameString(project)}"
   override def subReports(r: Result): Option[Result] = {
     @inline def reportInfo = project
-    def f[T](m: Map[ReportInfo, T]): Map[String, T] = (
-      if(reportInfo.subprojectNameOption.isEmpty) m.filter(_._1.projectId == project.projectId) else m.get(reportInfo).fold(Map.empty[ReportInfo, T])(x => Map(reportInfo -> x))
-    ).map{case (k, v) => k.fullId -> v}
-    val newFlatReports = f(r.flatReports)
-    val newFailedAnalysises = f(r.failedAnalysises)
-    if(newFlatReports.isEmpty && newFailedAnalysises.isEmpty) None
+    def filter[T](m: Map[ReportInfo, T]): Map[ReportInfo, T] = (
+      if(reportInfo.subprojectNameOption.isEmpty) m.filter(_._1.projectId == project.projectId)
+      else m.get(reportInfo).fold(Map.empty[ReportInfo, T])(x => Map(reportInfo -> x))
+    )
+    val newFlatReports = filter(r.flatReports)
+    val newFailedAnalysises = filter(r.failedAnalysises)
+    val newFailedReportDownloads = filter(r.failedReportDownloads)
+    if(newFlatReports.isEmpty && newFailedAnalysises.isEmpty && newFailedReportDownloads.isEmpty) None
     else Some(Result(
       bareFlatReports = newFlatReports,
       bareFailedAnalysises = newFailedAnalysises,
-      projects = r.projects,
-      failedReportDownloads = r.failedReportDownloads // TODO: consider filtering of failedReportDownloads
+      projectsReportInfo = r.projectsReportInfo,
+      failedReportDownloads = newFailedReportDownloads
     ))
   }
   override def selector = Some(s"project:${project.fullId}")
@@ -45,27 +47,33 @@ private final case class TeamFilter(team: Team) extends Filter{
   override def filters: Boolean = true
   override def subReports(r: Result): Option[Result] = {
     val Wildcard = """^(.*): \*$""".r
-    val reportInfoByFriendlyProjectNameMap = r.projectsReportInfo.ungroupedReportsInfo.map(ri => friendlyProjectNameString(ri) -> ri).toSeq.groupBy(_._1).mapValues{
-      case Seq((_, ri)) => ri
+    @inline def toMapStrict[K, V](l: Traversable[(K, V)]) = l.toSeq.groupBy(_._1).mapValues{  // without toSeq, the pattern matching might fail
+      case Seq((_, v)) => v
       case other => sys.error("some duplicate value: "+other)
     }.map(identity)
+    val reportInfoByFriendlyProjectNameMap = toMapStrict(r.projectsReportInfo.ungroupedReportsInfo.map(ri => friendlyProjectNameString(ri) -> ri))
     val ProjectName = """^(.*): (.*)$""".r
-    val failedProjectsFriendlyNames = r.failedProjects.failedProjectsSet.map(r.projectsReportInfo.parseUnfriendlyName).map(_.projectName)
-    println(failedProjectsFriendlyNames)
-    val rootProjectReports = reportInfoByFriendlyProjectNameMap.collect{ case (ProjectName(rootProject, subproject), v) =>
-      (rootProject, v)
+    val failedProjectsFriendlyNames = r.failedProjects.failedProjectsSet.map(_.projectName)
+    Logger.error("failedProjectsFriendlyNames: "+failedProjectsFriendlyNames)
+    val rootProjectReports = reportInfoByFriendlyProjectNameMap.map{
+      case (ProjectName(rootProject, _subproject), v) => (rootProject, v)
+      case value @ (rootProject, v) => value
     }.groupBy(_._1).mapValues(_.values).withDefault(name =>
       if(failedProjectsFriendlyNames contains name) Seq()
       else sys.error("Unknown project: "+name)
     )
-    def reportInfoByFriendlyProjectName(fpn: String) = reportInfoByFriendlyProjectNameMap.get(fpn).map(Set(_)).getOrElse(rootProjectReports(fpn.takeWhile(_ != ':')))
+    def reportInfoByFriendlyProjectName(fpn: String) = fpn match{
+      case Wildcard(rfpn) => rootProjectReports(rfpn)
+      case _ => Set(reportInfoByFriendlyProjectNameMap(fpn))
+    }
     val reportInfos = team.projectNames.flatMap(reportInfoByFriendlyProjectName)
-    def submap[T](m: Map[String, T]) = reportInfos.toSeq.flatMap(ri => m.get(ri.fullId).map(ri.fullId -> _) ).toMap
+    def submap[T](m: Map[ReportInfo, T]) = reportInfos.toSeq.flatMap(ri => m.get(ri).map(ri -> _) ).toMap
+    def submapBare[T](m: Map[ReportInfo, T]): Map[ReportInfo, T] = reportInfos.toSeq.flatMap(ri => m.get(ri.bare.ensuring{x => println(x.fullId); true}).map(ri -> _) ).toMap
     Some(Result(
       bareFlatReports = submap(r.bareFlatReports),
-      bareFailedAnalysises = submap(r.bareFailedAnalysises),
-      projects = r.projects,
-      failedReportDownloads = r.failedReportDownloads // TODO: consider filtering of failedReportDownloads
+      bareFailedAnalysises = submapBare(r.bareFailedAnalysises),
+      projectsReportInfo = r.projectsReportInfo,
+      failedReportDownloads = submapBare(r.failedReportDownloads)
     ))
   }
   override def descriptionHtml: Html = views.html.filters.team(team.id)
@@ -89,10 +97,11 @@ private final case class BadFilter(pattern: String) extends Filter{
 
 object DependencyCheckReportsParser{
   final case class ResultWithSelection(result: Result, projectsWithSelection: ProjectsWithSelection)
-  final case class Result(bareFlatReports: Map[String, Analysis], bareFailedAnalysises: Map[String, Throwable], projects: Projects /*TODO: maybe rename to rootProjects*/, failedReportDownloads: Map[String, Throwable]){
-    lazy val projectsReportInfo = new ProjectsWithReports(projects, bareFlatReports.keySet ++ bareFailedAnalysises.keySet ++ failedReportDownloads.keySet) // TODO: consider renaming to projectsWithReports
-    lazy val flatReports: Map[ReportInfo, Analysis] = bareFlatReports.map{case (k, v) => projectsReportInfo.reportIdToReportInfo(k) -> v}
-    lazy val failedAnalysises: Map[ReportInfo, Throwable] = bareFailedAnalysises.map{case (k, v) => projectsReportInfo.reportIdToReportInfo(k) -> v}
+  final case class Result(bareFlatReports: Map[ReportInfo, Analysis], bareFailedAnalysises: Map[ReportInfo, Throwable], projectsReportInfo: ProjectsWithReports/*TODO: maybe rename to rootProjects*/, failedReportDownloads: Map[ReportInfo, Throwable]){
+    //lazy val projectsReportInfo = new ProjectsWithReports(projects, (bareFlatReports.keySet ++ bareFailedAnalysises.keySet ++ failedReportDownloads.keySet).map(_.fullId)) // TODO: consider renaming to projectsWithReports
+    @inline def flatReports: Map[ReportInfo, Analysis] = bareFlatReports // TODO: unify
+    @inline def projects = projectsReportInfo.projects
+    @inline def failedAnalysises: Map[ReportInfo, Throwable] = bareFailedAnalysises // TODO: unify
     lazy val failedProjects = FailedProjects.combineFails(parsingFailures = failedAnalysises, failedReportDownloads = failedReportDownloads)
     lazy val allDependencies = flatReports.toSeq.flatMap(r => r._2.dependencies.map(_ -> r._1))
     lazy val groupedDependencies = allDependencies.groupBy(_._1.hashes).values.map(GroupedDependency(_)).toSeq
@@ -124,7 +133,7 @@ object DependencyCheckReportsParser{
 
 final class DependencyCheckReportsParser @Inject() (cache: CacheApi, projects: Projects) {
 
-  def parseReports(successfulResults: Map[String, (Build, ArtifactItem, ArtifactFile)], failedReportDownloads: Map[String, Throwable]) = {
+  def parseReports(successfulResults: Map[String, (Build, ArtifactItem, ArtifactFile)], failedReportDownloads: Map[String, Throwable]): Result = {
     val rid = math.random.toString  // for logging
     @volatile var parseFailedForSomeAnalysis = false
     val deepReportsTriesIterable: Iterable[Map[String, Try[Analysis]]] = for((k, (build, data, log)) <- successfulResults) yield {
@@ -155,7 +164,14 @@ final class DependencyCheckReportsParser @Inject() (cache: CacheApi, projects: P
     val failedAnalysises = deepReportsAndFailuresIterable.map(_._2).toSeq.flatten.toMap
     val flatReports = deepSuccessfulReports.flatten.toMap
     Logger.debug(s"[$rid] parse finished")
-    Result(flatReports, failedAnalysises, projects, failedReportDownloads = failedReportDownloads)
+    val projectReportInfo = new ProjectsWithReports(projects, flatReports.keySet++failedAnalysises.keySet++failedReportDownloads.keySet)
+    def convertKeys[T](m: Map[String, T]) = m.map{case (k, v) => projectReportInfo.reportIdToReportInfo(k) -> v}
+    Result(
+      convertKeys(flatReports),
+      convertKeys(failedAnalysises),
+      projectReportInfo,
+      failedReportDownloads = convertKeys(failedReportDownloads)
+    )
   }
 
 }

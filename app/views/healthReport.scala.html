@@ -1,0 +1,12 @@
+@import com.ysoft.odc.statistics.FailedProjects
+@(failedProjects: FailedProjects)
+@if(failedProjects.nonEmpty){
+    <div class="alert alert-danger">
+        Some projects are excluded from the report, because there is some failure for them:
+        <ul>
+            @for(proj <- failedProjects.failedProjectsSet.toIndexedSeq.sortBy(_.projectName.toLowerCase)){
+                <li>@proj.projectName</li>
+            }
+        </ul>
+    </div>
+}

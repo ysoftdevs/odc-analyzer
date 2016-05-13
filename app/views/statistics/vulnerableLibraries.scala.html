@@ -1,13 +1,15 @@
 @(
     projectsWithSelection: ProjectsWithSelection,
     vulnerableDependencies: Seq[GroupedDependency],
-    allDependenciesCount: Int
+    allDependenciesCount: Int,
+    reports: DependencyCheckReportsParser.Result
 )(implicit header: DefaultRequest)
 
 @main(
     title = s"Vulnerable libraries for ${projectsWithSelection.projectNameText} (${vulnerableDependencies.size} deps, ${vulnerableDependencies.flatMap(_.cpeIdentifiers.map(_.toCpeIdentifierOption.get)).toSet.size} CPEs)",
     projectsOption = Some((projectsWithSelection, routes.Statistics.vulnerableLibraries(_)))
 ){
+    @healthReport(reports.failedProjects)
     <script type="text/javascript" src="@routes.Assets.versioned("lib/jqplot/jquery.jqplot.min.js")"></script>
     <script type="text/javascript" src="@routes.Assets.versioned("lib/jqplot/plugins/jqplot.pieRenderer.min.js")"></script>
     <h2>Plot</h2>

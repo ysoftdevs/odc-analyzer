@@ -1,6 +1,6 @@
 package controllers
 
-final case class ReportInfo(
+final case class ReportInfo private[controllers] (
   projectId: String,
   projectName: String,
   fullId: String,
@@ -22,7 +22,12 @@ final case class ReportInfo(
 
   override def hashCode(): Int = 517+fullId.hashCode
 
-  def bare = copy(subprojectNameOption = None, fullId = fullId.takeWhile(_ != '/'))
+  def bare = ReportInfo(
+    fullId = fullId.takeWhile(_ != '/'),
+    projectId = projectId,
+    projectName = projectName,
+    subprojectNameOption = None
+  )
 
   def isBare = subprojectNameOption.isEmpty
   def isNotBare = !isBare

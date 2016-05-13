@@ -1,5 +1,5 @@
-@(projects: Seq[ReportInfo], watchedProjects: Set[String])(implicit req: DefaultRequest)
 @import helper._
+@(projects: Seq[ReportInfo], watchedProjects: Set[String], failedReports: Set[String])(implicit req: DefaultRequest)
 @button(action: Call)(label: String) = {
     @form(action, 'style -> "display: inline-block"){
         @CSRF.formField
@@ -13,6 +13,7 @@
     @for(
         isWatchedDirectly <- Some(watchedProjects contains project.fullId);  // hack allowing one to define a variable
         isWatchedByParent = project.isNotBare && (watchedProjects contains project.bare.fullId);
+        isFailed = failedReports contains project.fullId; // actually fullId should be equal bare id in such cases
         watchedChildCount = subprojects.count(p => watchedProjects contains p.fullId);
         hasWatchedChild = watchedChildCount > 0;
         hasButtons = !subprojects.isEmpty;
@@ -31,6 +32,9 @@
                 </span>
             }
             @friendlyProjectName(project)
+            @if(isFailed){
+                (!)
+            }
             @if(project.isBare){
                 @if(isWatchedDirectly){
                     <span class="badge">You watch this project with all subprojects.</span>

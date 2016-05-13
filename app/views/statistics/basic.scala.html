@@ -42,7 +42,7 @@
     headExtension = he,
     projectsOption = Some((projectsWithSelection, routes.Statistics.basic(_)))
 ){
-
+    @healthReport(lds.failedProjects)
     All dependencies: @parsedReports.groupedDependencies.size <br>
     Vulnerable dependencies: @parsedReports.vulnerableDependencies.size <br>
     Vulnerabilities: @parsedReports.vulnerableDependencies.flatMap(_.vulnerabilities.map(_.name)).toSet.size<br>

@@ -86,7 +86,7 @@ class Statistics @Inject() (
           tagStatistics = tagStatistics,
           projectsWithSelection = selection.projectsWithSelection,
           parsedReports = parsedReports,
-          lds = LibDepStatistics(libraries.toSet, parsedReports.groupedDependencies.toSet, selection.result.failedReportDownloads, parsedReports)
+          lds = LibDepStatistics(libraries.toSet, parsedReports.groupedDependencies.toSet, parsedReports)
         ))
       }
     }
@@ -112,7 +112,6 @@ class Statistics @Inject() (
         stats = LibDepStatistics(
           libraries = tagLibraries,
           dependencies = tagDependencies,
-          failedReportDownloads = parsedReports.failedReportDownloads,
           parsedReports = parsedReports
         )
       ))
@@ -130,12 +129,11 @@ class Statistics @Inject() (
           statistics <- tagOption.fold(Future.successful(LibDepStatistics(
             dependencies = parsedReports.groupedDependencies.toSet,
             libraries = libraries.values.toSet,
-            failedReportDownloads = selection.result.failedReportDownloads,
             parsedReports = parsedReports
           ))){ tag =>
             statisticsForTags(parsedReports, Future.successful(Seq(tag))).map{
               case Seq(TagStatistics(_, stats)) => stats // statisticsForTags is designed for multiple tags, but we have just one…
-              case Seq() => LibDepStatistics(libraries = Set(), dependencies = Set(), failedReportDownloads = selection.result.failedReportDownloads, parsedReports) // We don't want to crash when no dependencies are there…
+              case Seq() => LibDepStatistics(libraries = Set(), dependencies = Set(), parsedReports = parsedReports) // We don't want to crash when no dependencies are there…
             }
           }
         } yield Ok(views.html.statistics.vulnerabilities(
@@ -162,7 +160,8 @@ class Statistics @Inject() (
             vulnOption <- odcService.getVulnerabilityDetails(name)
           } yield Ok(views.html.statistics.vulnerabilityNotFound( // TODO: the not found page might be replaced by some page explaining that there is no project affected by that vulnerability
             name = name,
-            projectsWithSelection = selection.projectsWithSelection
+            projectsWithSelection = selection.projectsWithSelection,
+            failedProjects = selection.result.failedProjects
           ))
         }{ vulnerableDependencies =>
           for {
@@ -173,6 +172,7 @@ class Statistics @Inject() (
             sys.error("The vulnerability is not in the database, you seem to have outdated the local vulnerability database") // TODO: consider fallback or more friendly error message
           }{vuln => Ok(views.html.statistics.vulnerability(
             vulnerability = vuln,
+            failedProjects = selection.result.failedProjects,
             affectedProjects = vulnerableDependencies.flatMap(dep => dep.projects.map(proj => (proj, dep))).groupBy(_._1).mapValues(_.map(_._2)),
             vulnerableDependencies = vulnerableDependencies,
             affectedLibraries = plainLibs,
@@ -196,7 +196,8 @@ class Statistics @Inject() (
         Future.successful(Ok(views.html.statistics.vulnerableLibraries(
           projectsWithSelection = selection.projectsWithSelection,
           vulnerableDependencies = reports.vulnerableDependencies,
-          allDependenciesCount = reports.groupedDependencies.size
+          allDependenciesCount = reports.groupedDependencies.size,
+          reports = reports
         )))
       }
     }
@@ -208,7 +209,8 @@ class Statistics @Inject() (
       select(allResults, selectorOption).fold(Future.successful(notFound())){ selection =>
         Future.successful(Ok(views.html.statistics.allLibraries(
           projectsWithSelection = selection.projectsWithSelection,
-          allDependencies = selection.result.groupedDependencies
+          allDependencies = selection.result.groupedDependencies,
+          failedProjects = selection.result.failedProjects
         )))
       }
     }

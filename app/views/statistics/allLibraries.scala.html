@@ -1,12 +1,15 @@
+@import com.ysoft.odc.statistics.FailedProjects
 @(
     projectsWithSelection: ProjectsWithSelection,
-    allDependencies: Seq[GroupedDependency]
+    allDependencies: Seq[GroupedDependency],
+    failedProjects: FailedProjects
 )(implicit header: DefaultRequest)
 
 @main(
     title = s"All libraries for ${projectsWithSelection.projectNameText}",
     projectsOption = Some((projectsWithSelection, routes.Statistics.allLibraries(_)))
 ){
+    @healthReport(failedProjects)
     @dependencyList(
         "all",
         allDependencies.sortBy(_.identifiers.toIndexedSeq.sortBy(i => (i.confidence.id, i.identifierType, i.name)).mkString(", ")),
