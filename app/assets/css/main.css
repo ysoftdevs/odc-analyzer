@@ -147,3 +147,11 @@ h3.library-identification{
     top: 2px;
     left: -19px;
 }
+
+
+.nav > li.collapse {
+    display: none;
+}
+.nav > li.collapse.in {
+    display: list-item;
+}
