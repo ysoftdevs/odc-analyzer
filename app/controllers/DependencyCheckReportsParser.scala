@@ -45,6 +45,15 @@ private final case class ProjectFilter(project: ReportInfo) extends Filter{
 }
 private final case class TeamFilter(team: Team) extends Filter{
   override def filters: Boolean = true
+
+  private def splitSuccessesAndFailures[T, U](set: Set[Either[T, U]]) = {
+    val (lefts, rights) = set.partition(_.isLeft)
+    (
+      lefts.map(_.asInstanceOf[Left[T, U]].a),
+      rights.map(_.asInstanceOf[Right[T, U]].b)
+    )
+  }
+
   override def subReports(r: Result): Option[Result] = {
     val Wildcard = """^(.*): \*$""".r
     @inline def toMapStrict[K, V](l: Traversable[(K, V)]) = l.toSeq.groupBy(_._1).mapValues{  // without toSeq, the pattern matching might fail
@@ -62,16 +71,22 @@ private final case class TeamFilter(team: Team) extends Filter{
       if(failedProjectsFriendlyNames contains name) Seq()
       else sys.error("Unknown project: "+name)
     )
-    def reportInfoByFriendlyProjectName(fpn: String) = fpn match{
-      case Wildcard(rfpn) => rootProjectReports(rfpn)
-      case _ => Set(reportInfoByFriendlyProjectNameMap(fpn))
+    def reportInfoByFriendlyProjectName(fpn: String): Either[Iterable[ReportInfo], String] = {
+      def toEither[T](v: Option[T]): Either[T, String] = v.fold[Either[T, String]](Right(fpn))(Left(_))
+      fpn match{
+        case Wildcard(rfpn) => toEither(rootProjectReports.get(rfpn))
+        case _ => toEither(reportInfoByFriendlyProjectNameMap.get(fpn).map(Set(_)))
+      }
     }
-    val reportInfos = team.projectNames.flatMap(reportInfoByFriendlyProjectName)
+    val (reportInfosDeep, projectsNotFound) = splitSuccessesAndFailures(team.projectNames.map(reportInfoByFriendlyProjectName))
+    val reportInfos: Set[ReportInfo] = reportInfosDeep.flatten
     def submap[T](m: Map[ReportInfo, T]) = reportInfos.toSeq.flatMap(ri => m.get(ri).map(ri -> _) ).toMap
     def submapBare[T](m: Map[ReportInfo, T]): Map[ReportInfo, T] = reportInfos.toSeq.flatMap(ri => m.get(ri.bare.ensuring{x => println(x.fullId); true}).map(ri -> _) ).toMap
+    // TODO: projectsNotFoundMap is a hack for reporting errors to humans, because there is no suitable category for such errors
+    val projectsNotFoundMap = projectsNotFound.map(name => ReportInfo("name: " + name, name, "name: " + name, None) -> new RuntimeException("Project " + name + " not found")).toMap
     Some(Result(
       bareFlatReports = submap(r.bareFlatReports),
-      bareFailedAnalysises = submapBare(r.bareFailedAnalysises),
+      bareFailedAnalysises = submapBare(r.bareFailedAnalysises) ++ projectsNotFoundMap,
       projectsReportInfo = r.projectsReportInfo,
       failedReportDownloads = submapBare(r.failedReportDownloads)
     ))

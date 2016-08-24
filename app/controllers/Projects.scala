@@ -11,9 +11,9 @@ class Projects @Inject() (configuration: Configuration) {
     projectsConfig.entrySet().map( k => k.getKey -> projectsConfig.getString(k.getKey)).toMap
   }
   val projectSet = projectMap.keySet
-  val teamIdSet = configuration.getStringSeq("yssdc.teams").getOrElse(sys.error("yssdc.teams is not set")).map(TeamId).toSet
+  private val teamIdSet = configuration.getStringSeq("yssdc.teams").getOrElse(sys.error("yssdc.teams is not set")).map(TeamId).toSet
   private val teamsByIds = teamIdSet.map(t => t.id -> t).toMap
-  val teamLeaders = {
+  private val teamLeaders = {
     import scala.collection.JavaConversions._
     configuration.getObject("yssdc.teamLeaders").getOrElse(sys.error("yssdc.teamLeaders is not set")).map{case(k, v) =>
       TeamId(k) -> v.unwrapped().asInstanceOf[String]
@@ -26,17 +26,17 @@ class Projects @Inject() (configuration: Configuration) {
     }
   }
 
-  def existingTeamId(s: String): TeamId = teamsByIds(s)
+  private def existingTeamId(s: String): TeamId = teamsByIds(s)
 
-  val projectToTeams = configuration.getObject("yssdc.projectsToTeams").get.mapValues{_.unwrapped().asInstanceOf[java.util.List[String]].map(c =>
+  private val projectToTeams = configuration.getObject("yssdc.projectsToTeams").get.mapValues{_.unwrapped().asInstanceOf[java.util.List[String]].map(c =>
     existingTeamId(c)
   ).toSet}.map(identity)
 
-  val projectAndTeams = projectToTeams.toSeq.flatMap{case (project, teams) => teams.map(team => (project, team))}
+  private val projectAndTeams = projectToTeams.toSeq.flatMap{case (project, teams) => teams.map(team => (project, team))}
 
-  val teamsToProjects = projectAndTeams.groupBy(_._2).mapValues(_.map(_._1).toSet).map(identity)
+  private val teamsToProjects = projectAndTeams.groupBy(_._2).mapValues(_.map(_._1).toSet).map(identity)
 
-  val teamsById: Map[String, Team] = for{
+  private val teamsById: Map[String, Team] = for{
     (team, projectNames) <- teamsToProjects
   } yield team.id -> Team(
     id = team.id,
