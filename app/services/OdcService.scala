@@ -1,15 +1,18 @@
 package services
 
 import java.lang.{Boolean => JBoolean}
-import java.util.{Map => JMap}
+import java.sql.{Array => _, _}
+import java.util.{Properties, Map => JMap}
 
 import _root_.org.owasp.dependencycheck.data.nvdcve.CveDB
 import _root_.org.owasp.dependencycheck.dependency.VulnerableSoftware
 import _root_.org.owasp.dependencycheck.utils.{DependencyVersion, DependencyVersionUtil, Settings}
 import com.github.nscala_time.time.Imports._
 import com.google.inject.Inject
-import models.odc.{Vulnerabilities, OdcProperty}
+import com.mockrunner.mock.jdbc.MockConnection
 import models.odc.tables._
+import models.odc.{OdcProperty, Vulnerabilities}
+import play.api.Logger
 import play.api.db.slick.{DatabaseConfigProvider, HasDatabaseConfigProvider}
 import play.db.NamedDatabase
 
@@ -116,10 +119,24 @@ class OdcService @Inject()(@NamedDatabase("odc") protected val dbConfigProvider:
 
 private[services] object CveDbHelper {
 
+  class DummyDriver extends Driver{
+    override def acceptsURL(url: String): Boolean = {url.startsWith("jdbc:dummy:")}
+    override def jdbcCompliant(): Boolean = false
+    override def connect(url: String, info: Properties): Connection = new MockConnection()
+    override def getParentLogger = throw new SQLFeatureNotSupportedException()
+    override def getPropertyInfo(url: String, info: Properties): Array[DriverPropertyInfo] = {Array()}
+    override def getMinorVersion: Int = 1
+    override def getMajorVersion: Int = 1
+  }
+
+  org.apache.geronimo.jdbc.DelegatingDriver.registerDriver(new DummyDriver())
 
   def matchSofware(vulnerableSoftware: Map[String, Boolean], vendor: String, product: String, identifiedVersion: DependencyVersion) = {
     if(Settings.getInstance() == null){
       Settings.initialize()// Initiallize ODC environment on first use; Needed for each thread.
+      Settings.setString(Settings.KEYS.DB_CONNECTION_STRING, "jdbc:dummy:")
+      // Workaround: At first initialization, it will complain that the DB is empty. On next initializations, it will not complain.
+      try{new CveDB()}catch {case e: Throwable => Logger.info("A workaround-related exception, safe to ignore", e)}
     }
     val cd = new CveDB()
     import scala.collection.JavaConversions._

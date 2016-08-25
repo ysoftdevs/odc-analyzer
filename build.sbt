@@ -75,7 +75,7 @@ libraryDependencies += "net.codingwell" %% "scala-guice" % "4.0.0"
 
 libraryDependencies += "com.iheart" %% "ficus" % "1.2.3"
 
-libraryDependencies += "org.owasp" % "dependency-check-core" % "1.3.0"
+libraryDependencies += "org.owasp" % "dependency-check-core" % "1.4.2"
 
 libraryDependencies += "com.typesafe.play" %% "play-mailer" % "3.0.1"
 
@@ -84,6 +84,10 @@ libraryDependencies += "com.google.caliper" % "caliper" % "1.0-beta-2"
 libraryDependencies += "org.apache.httpcomponents" % "httpclient" % "4.3.6" // evict the vulnerable version
 
 libraryDependencies += "commons-collections" % "commons-collections" % "3.2.2" // evict the vulnerable version
+
+libraryDependencies += "org.apache.geronimo.modules" % "geronimo-jdbc" % "2.0.2"
+
+libraryDependencies += "com.mockrunner" % "mockrunner-jdbc" % "1.1.1"
 
 routesImport += "binders.QueryBinders._"
 
