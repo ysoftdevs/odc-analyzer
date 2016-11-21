@@ -1,0 +1,8 @@
+@import com.ysoft.odc.statistics.FailedProjects
+@(message: Html, failedReports: FailedProjects, buildLink: ReportInfo => String)
+@message
+<ul>
+    @for(project <- failedReports.failedProjectsSet.toSeq.sortBy(_.projectName)){
+        <li>@secureLink(buildLink(project)){@friendlyProjectName(project)}</li>
+    }
+</ul>

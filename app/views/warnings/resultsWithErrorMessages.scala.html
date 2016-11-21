@@ -1,5 +1,2 @@
-@(reportsWithErrorMessages: Seq[Build], urlBase: String)
+@()
 <strong>Following projects seem to contain some error messages in their logs:</strong>
-@for(build <- reportsWithErrorMessages.toSeq.sortBy(_.projectName)){
-    <li>@secureLink(build.resultLink(urlBase)){@build.projectName}</li>
-}

@@ -1,5 +1,6 @@
 package controllers
 
+import com.ysoft.odc.statistics.FailedProjects
 import controllers.WarningSeverity.WarningSeverity
 import play.twirl.api.Html
 
@@ -21,4 +22,12 @@ sealed abstract class Warning {
 
 final case class IdentifiedWarning(id: String, html: Html, severity: WarningSeverity) extends Warning{
   def optimize = copy(html = Html(html.body))
+}
+
+final case class ProjectWarningBuilder(id: String, html: Html, severity: WarningSeverity){
+  def forProjects(projects: FailedProjects, buildLink: ReportInfo => String): IdentifiedWarning = IdentifiedWarning(
+    id,
+    views.html.warnings.projectFailures(html, projects, buildLink),
+    severity
+  )
 }

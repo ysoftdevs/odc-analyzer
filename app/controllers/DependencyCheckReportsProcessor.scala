@@ -5,6 +5,7 @@ import com.google.inject.Inject
 import com.google.inject.name.Named
 import com.ysoft.odc.Checks._
 import com.ysoft.odc._
+import com.ysoft.odc.statistics.FailedProjects
 import org.joda.time.DateTimeConstants
 import play.api.Logger
 import play.api.i18n.{I18nSupport, MessagesApi}
@@ -40,6 +41,7 @@ final class DependencyCheckReportsProcessor @Inject() (
     }
   }
 
+  private def buildLink(reportInfo: ReportInfo): String = s"$server/browse/${reportInfo.projectId}"
 
   def processResults(
     resultsFuture: Future[(Map[String, (Build, ArtifactItem, ArtifactFile)], Map[String, Throwable])],
@@ -47,7 +49,7 @@ final class DependencyCheckReportsProcessor @Inject() (
   )(implicit requestHeader: DefaultRequest, snoozesInfo: SnoozesInfo, executionContext: ExecutionContext) = try{
     for((successfulResults, failedResults) <- resultsFuture) yield{
       val reportResult = dependencyCheckReportsParser.parseReports(successfulResults, failedResults)
-      import reportResult.{allDependencies, failedAnalysises, flatReports, groupedDependencies, vulnerableDependencies}
+      import reportResult.{allDependencies, failedAnalysises, flatReports, groupedDependencies, vulnerableDependencies, projectsReportInfo}
       val now = DateTime.now
       val oldReportThreshold = now - 1.day
       val cveTimestampThreshold = now - (if(now.dayOfWeek().get == DateTimeConstants.MONDAY) 4.days else 2.days )
@@ -73,12 +75,18 @@ final class DependencyCheckReportsProcessor @Inject() (
       )
 
       val unknownIdentifierTypes = allDependencies.flatMap(_._1.identifiers.map(_.identifierType)).toSet -- Set("maven", "cpe")
+      val logChecks = Seq[(String => Boolean, ProjectWarningBuilder)](
+        (
+          log => log.lines.exists(l => (l.toLowerCase startsWith "error") || (l.toLowerCase contains "[error]")),
+          ProjectWarningBuilder("results-with-error-messages", views.html.warnings.resultsWithErrorMessages(), WarningSeverity.Error)
+        )
+      )
+      val logWarnings: Seq[Warning] = logChecks.flatMap{case (logCheck, warningBuilder) =>
+        val resultsWithErrorMessages = successfulResults.filter{case (k, (_, _, log)) => logCheck(log.dataString)}
+        if(resultsWithErrorMessages.nonEmpty) Some(warningBuilder.forProjects(new FailedProjects(resultsWithErrorMessages.keys.map(projectsReportInfo.reportIdToReportInfo).toSet), buildLink)) else None
+      }
       val extraWarnings = Seq[Option[Warning]](
         if(unknownIdentifierTypes.size > 0) Some(IdentifiedWarning("unknown-identifier-types", views.html.warnings.unknownIdentifierType(unknownIdentifierTypes), WarningSeverity.Info)) else None,
-        {
-          val resultsWithErrorMessages = successfulResults.filter{case (k, (_, _, log)) => log.dataString.lines.exists(l => (l.toLowerCase startsWith "error") || (l.toLowerCase contains "[error]"))}
-          if(resultsWithErrorMessages.nonEmpty) Some(IdentifiedWarning("results-with-error-messages", views.html.warnings.resultsWithErrorMessages(resultsWithErrorMessages.values.map{case (build, _, _) => build}.toSeq, server), WarningSeverity.Error)) else None
-        },
         if(failedResults.isEmpty) None else Some(IdentifiedWarning("failed-results", views.html.warnings.failedResults(failedResults), WarningSeverity.Error)),
         if(requiredVersions.isEmpty) None else Some(IdentifiedWarning("required-versions", views.html.warnings.textWarning("You have manually requested results for some older version."), WarningSeverity.Warning)),
         if(failedAnalysises.isEmpty) None else Some(IdentifiedWarning("failed-analysises", views.html.warnings.textWarning(s"Some reports failed to parse: ${failedAnalysises.keySet}"), WarningSeverity.Error))
@@ -86,7 +94,7 @@ final class DependencyCheckReportsProcessor @Inject() (
 
       val scanWarnings = ScanChecks.flatMap(_(flatReports))
       val groupedDependenciesWarnings = GroupedDependenciesChecks.flatMap(_(groupedDependencies))
-      val allWarnings = scanWarnings ++ groupedDependenciesWarnings ++ extraWarnings
+      val allWarnings = scanWarnings ++ groupedDependenciesWarnings ++ logWarnings ++ extraWarnings
 
       // TODO: log analysis
       // TODO: related dependencies
