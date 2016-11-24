@@ -4,9 +4,12 @@
 @main("Log in"){
     @form(routes.AuthController.authenticate(callback)){
         @CSRF.formField
-        @inputText(loginForm("username"))
+        @inputText(loginForm("username"), 'id -> "username")
         @inputPassword(loginForm("password"))
         @* checkbox(loginForm("rememberMe")) *@
         <button type="submit">Log me in!</button>
     }
+    <script type="text/javascript">
+        document.getElementById("username").focus();
+    </script>
 }
