@@ -6,11 +6,12 @@ import com.google.inject.name.Named
 import com.ysoft.odc.Checks._
 import com.ysoft.odc._
 import com.ysoft.odc.statistics.FailedProjects
+import modules.{LogSmell, LogSmellChecks}
 import org.joda.time.DateTimeConstants
 import play.api.Logger
 import play.api.i18n.{I18nSupport, MessagesApi}
 import play.api.mvc.RequestHeader
-import play.twirl.api.Html
+import play.twirl.api.{Html, HtmlFormat}
 import views.html.DefaultRequest
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -23,6 +24,7 @@ final class DependencyCheckReportsProcessor @Inject() (
                                                   @Named("bamboo-server-url") val server: String,
                                                   dependencyCheckReportsParser: DependencyCheckReportsParser,
                                                   @Named("missing-GAV-exclusions") missingGAVExclusions: MissingGavExclusions,
+                                                  @Named("log-smells") logSmells: LogSmellChecks,
                                                   val messagesApi: MessagesApi
                                                   ) extends I18nSupport {
 
@@ -80,10 +82,15 @@ final class DependencyCheckReportsProcessor @Inject() (
           log => log.lines.exists(l => (l.toLowerCase startsWith "error") || (l.toLowerCase contains "[error]")),
           ProjectWarningBuilder("results-with-error-messages", views.html.warnings.resultsWithErrorMessages(), WarningSeverity.Error)
         )
-      )
+      ) ++ logSmells.checks.toSeq.map { case (id, s) =>
+        (
+          (log: String) => log.lines.exists(l => s.regex.pattern.matcher(l).find),
+          ProjectWarningBuilder(id, HtmlFormat.escape(s.message), s.severity)
+        )
+      }
       val logWarnings: Seq[Warning] = logChecks.flatMap{case (logCheck, warningBuilder) =>
-        val resultsWithErrorMessages = successfulResults.filter{case (k, (_, _, log)) => logCheck(log.dataString)}
-        if(resultsWithErrorMessages.nonEmpty) Some(warningBuilder.forProjects(new FailedProjects(resultsWithErrorMessages.keys.map(projectsReportInfo.reportIdToReportInfo).toSet), buildLink)) else None
+        val resultsWithErrorMessages = successfulResults.par.filter{case (k, (_, _, log)) => logCheck(log.dataString)}
+        if(resultsWithErrorMessages.nonEmpty) Some(warningBuilder.forProjects(new FailedProjects(resultsWithErrorMessages.keys.map(projectsReportInfo.reportIdToReportInfo).seq.toSet), buildLink)) else None
       }
       val extraWarnings = Seq[Option[Warning]](
         if(unknownIdentifierTypes.size > 0) Some(IdentifiedWarning("unknown-identifier-types", views.html.warnings.unknownIdentifierType(unknownIdentifierTypes), WarningSeverity.Info)) else None,

@@ -68,6 +68,14 @@ yssdc{
       //optional: type = "digest" or type="vulnerabilities" (default); Digest is WIP.
     }
   }
+  logSmells {
+    // An example of analysis of logs. This one if for Maven and requires -X to be used for Maven scans.
+    //centralLookup {
+    //  patternType = "regex"
+    //  pattern = "Searching Central url http(s?)://search\\.maven\\.org"
+    //  message = "Maven Central lookup used. Enable usage of local repository, please."
+    //}
+  }
   projects = {jobId:humanReadableName, …}
   teams = […]
   exclusions{

@@ -7,7 +7,7 @@ import java.util.concurrent.Executors
 
 import akka.util.ClassLoaderObjectInputStream
 import com.ysoft.odc._
-import controllers.MissingGavExclusions
+import controllers.{MissingGavExclusions, WarningSeverity}
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 import play.api.cache.CacheApi
@@ -99,7 +99,8 @@ class ConfigModule extends Module {
     bind[MissingGavExclusions].qualifiedWith("missing-GAV-exclusions").toInstance(MissingGavExclusions(
       configuration.getStringSeq("yssdc.exclusions.missingGAV.bySha1").getOrElse(Seq()).toSet.map(Exclusion))
     ),
-    bind[ExecutionContext].qualifiedWith("email-sending").toInstance(ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor()))
+    bind[ExecutionContext].qualifiedWith("email-sending").toInstance(ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())),
+    bind[LogSmellChecks].qualifiedWith("log-smells").toInstance(LogSmellChecks(configuration.underlying.getAs[Map[String, LogSmell]]("yssdc.logSmells").getOrElse(Map())))
   ) ++
     configuration.underlying.getAs[Absolutizer]("app").map(a => bind[Absolutizer].toInstance(a)) ++
     configuration.getString("play.cache.path").map(cachePath => bind[CacheApi].toInstance(new FileCacheApi(Paths.get(cachePath)))) ++
@@ -107,4 +108,11 @@ class ConfigModule extends Module {
     configuration.getString("yssdc.reports.bamboo.user").map{u => bambooAuthentication.toInstance(new CredentialsAtlassianAuthentication(u, configuration.getString("yssdc.reports.bamboo.password").get))} ++
     configuration.getString("yssdc.reports.path").map{s => bind[String].qualifiedWith("reports-path").toInstance(s)}
 
+}
+
+case class LogSmellChecks(checks: Map[String, LogSmell])
+
+case class LogSmell(pattern: String, message: String){
+  val regex = pattern.r
+  def severity = WarningSeverity.Warning
 }
