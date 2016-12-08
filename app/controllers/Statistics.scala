@@ -6,7 +6,7 @@ import com.google.inject.name.Named
 import com.ysoft.odc.statistics.{LibDepStatistics, TagStatistics}
 import com.ysoft.odc.{ArtifactFile, ArtifactItem}
 import controllers.DependencyCheckReportsParser.ResultWithSelection
-import models.LibraryTag
+import models.{ExportedVulnerability, LibraryTag}
 import org.joda.time.DateTime
 import play.api.i18n.MessagesApi
 import play.twirl.api.Txt
@@ -146,6 +146,13 @@ class Statistics @Inject() (
   }
 
   def vulnerability(name: String, selectorOption: Option[String]) = ReadAction.async { implicit req =>
+    val ticketOptionFuture = vulnerabilityNotificationService.issueTrackerExport.ticketForVulnerability(name)
+    val issueOptionFuture = ticketOptionFuture.map(ticketOption =>
+      for{
+        ticket <- ticketOption
+        issueTrackerService <- issueTrackerServiceOption
+      } yield ticket -> issueTrackerService.ticketLink(ticket)
+    )
     val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
     resultsFuture flatMap { allResults =>
       select(allResults, selectorOption).fold(Future.successful(notFound())){ selection =>
@@ -158,16 +165,18 @@ class Statistics @Inject() (
         vulns.get(name).fold{
           for{
             vulnOption <- odcService.getVulnerabilityDetails(name)
+            issueOption <- issueOptionFuture
           } yield Ok(views.html.statistics.vulnerabilityNotFound( // TODO: the not found page might be replaced by some page explaining that there is no project affected by that vulnerability
             name = name,
             projectsWithSelection = selection.projectsWithSelection,
-            failedProjects = selection.result.failedProjects
+            failedProjects = selection.result.failedProjects,
+            issueOption = issueOption
           ))
         }{ vulnerableDependencies =>
           for {
             vulnOption <- odcService.getVulnerabilityDetails(name)
             plainLibs <- librariesService.byPlainLibraryIdentifiers(vulnerableDependencies.flatMap(_.plainLibraryIdentifiers)).map(_.keySet)
-            ticketOption <- vulnerabilityNotificationService.issueTrackerExport.ticketForVulnerability(name)
+            issueOption <- issueOptionFuture
           } yield vulnOption.fold{
             sys.error("The vulnerability is not in the database, you seem to have outdated the local vulnerability database") // TODO: consider fallback or more friendly error message
           }{vuln => Ok(views.html.statistics.vulnerability(
@@ -177,10 +186,7 @@ class Statistics @Inject() (
             vulnerableDependencies = vulnerableDependencies,
             affectedLibraries = plainLibs,
             projectsWithSelection = selection.projectsWithSelection,
-            issueOption = for{
-              ticket <- ticketOption
-              issueTrackerService <- issueTrackerServiceOption
-            } yield ticket -> issueTrackerService.ticketLink(ticket)
+            issueOption = issueOption
           ))}
         }
 
