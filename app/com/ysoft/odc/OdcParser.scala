@@ -46,6 +46,7 @@ final case class Dependency(
   description: String,
   evidenceCollected: Set[Evidence],
   identifiers: Seq[Identifier],
+  suppressedIdentifiers: Seq[Identifier],
   license: String,
   vulnerabilities: Seq[Vulnerability],
   suppressedVulnerabilities: Seq[Vulnerability],
@@ -78,6 +79,7 @@ final case class GroupedDependency(dependencies: Map[Dependency, Set[ReportInfo]
   def hashes = dependencies.keys.head.hashes // valid since all deps in a group have the same hashes
   val sha1 = hashes.sha1
   def identifiers: Set[Identifier] = dependencies.keySet.flatMap(_.identifiers)
+  def suppressedIdentifiers: Set[Identifier] = dependencies.keySet.flatMap(_.suppressedIdentifiers)
   def mavenIdentifiers = identifiers.filter(_.identifierType == "maven")
   def cpeIdentifiers = identifiers.filter(_.identifierType == "cpe")
   def vulnerabilities: Set[Vulnerability] = dependencies.keySet.flatMap(_.vulnerabilities)
@@ -244,7 +246,10 @@ object OdcParser {
     ))
   }
 
-  def parseIdentifier(node: Node): Identifier = {
+  def parseIdentifier(node: Node, expectedLabel: String): Identifier = {
+    if(node.label != expectedLabel){
+      sys.error("Unexpected label for identifier: "+node.label)
+    }
     checkElements(node, Set("name", "url"))
     checkParams(node, Set("type", "confidence"))
     val ExtractPattern = """\((.*)\)""".r
@@ -258,14 +263,11 @@ object OdcParser {
     ))
   }
 
-  def parseIdentifiers(seq: Node): Seq[Identifier] = {
-    filterWhitespace(seq.head).map(parseIdentifier(_))
-  }
-
   def parseDependency(node: Node): Dependency = {
     checkElements(node, Set("fileName", "filePath", "md5", "sha1", "description", "evidenceCollected", "identifiers", "license", "vulnerabilities", "relatedDependencies"))
     checkParams(node, Set())
     val (vulnerabilities: Seq[Node], suppressedVulnerabilities: Seq[Node]) = (node \ "vulnerabilities").headOption.map(filterWhitespace).getOrElse(Seq()).partition(_.label == "vulnerability")
+    val (identifiers, suppressedIdentifiers) = (node \ "identifiers").headOption.map(filterWhitespace).getOrElse(Seq()).partition(_.label == "identifier")
     dependencyPool(Dependency(
       fileName = (node \ "fileName").text,
       filePath = (node \ "filePath").text,
@@ -273,7 +275,8 @@ object OdcParser {
       sha1 = (node \ "sha1").text,
       description = (node \ "description").text,
       evidenceCollected = filterWhitespace((node \ "evidenceCollected").head).map(parseEvidence).toSet,
-      identifiers = (node \ "identifiers").headOption.map(parseIdentifiers).getOrElse(Seq()),
+      identifiers = identifiers.map(parseIdentifier(_, "identifier")),
+      suppressedIdentifiers = suppressedIdentifiers.map(parseIdentifier(_, "suppressedIdentifier")),
       license = (node \ "license").text,
       vulnerabilities = vulnerabilities.map(parseVulnerability(_)),
       suppressedVulnerabilities = suppressedVulnerabilities.map(parseVulnerability(_, "suppressedVulnerability")),

@@ -4,6 +4,7 @@
 @for(groupedDependency <- items){
     <li>
         <strong>@groupedDependency.fileNames.toSeq.sorted</strong>
+        @*TODO: Consider using libraryIdentification there in otder to support suppressedIdentifiers properly *@
         @identifiers(groupedDependency.identifiers)
         @groupedDependency.dependencies.keySet.groupBy(_.evidenceCollected)
     </li>
