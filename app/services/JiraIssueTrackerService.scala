@@ -30,10 +30,10 @@ object JiraIssueTrackerService {
     teamsId: Option[String],
     librariesId: Option[String],
     */
-    constantFields: JsObject
+    constantFields: Option[JsObject]
   )
 
-  val NoFields = Fields(cweId = None, linkId = None, severityId = None, projectsId = None, constantFields = JsObject(Seq()))
+  val NoFields = Fields(cweId = None, linkId = None, severityId = None, projectsId = None, constantFields = None)
 
 }
 
@@ -110,7 +110,7 @@ class JiraIssueTrackerService @Inject()(absolutizer: Absolutizer, @Named("jira-s
       // TODO: add affected releases
     )
     val additionalObj = Json.obj(additionalFields.flatten : _*)
-    val constantObj = fields.constantFields //Json.obj(fields.constantFields.map{case (k, v) => k -> (v: JsValueWrapper) }.toSeq: _*)
+    val constantObj = fields.constantFields.getOrElse(Json.obj())
     base ++ additionalObj ++ constantObj
   }
 
