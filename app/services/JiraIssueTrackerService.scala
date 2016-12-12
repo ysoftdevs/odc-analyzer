@@ -8,7 +8,7 @@ import controllers.{ReportInfo, Vulnerability, friendlyProjectNameString, routes
 import models.ExportedVulnerability
 import play.api.libs.json.Json.JsValueWrapper
 import play.api.libs.json._
-import play.api.libs.ws.{WS, WSClient}
+import play.api.libs.ws.{WS, WSClient, WSResponse}
 import services.JiraIssueTrackerService.Fields
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -59,6 +59,25 @@ class JiraIssueTrackerService @Inject()(absolutizer: Absolutizer, @Named("jira-s
     }
   )
 
+  private implicit class RichFutureResponse(r: Future[WSResponse]){
+    def requireSuccess: Future[WSResponse] = {
+      r.map{ resp =>
+        if(resp.status != 200){
+          sys.error(s"Request expected to end with success, but it has failed with ${resp.status} / ${resp.statusText}.")
+        }
+        resp
+      }
+    }
+    def requireStatus(expectedStatus: Int): Future[WSResponse] = {
+      r.map{ resp =>
+        if(resp.status != expectedStatus){
+          sys.error(s"Request expected to end with status $expectedStatus, but it has failed with ${resp.status} / ${resp.statusText}.")
+        }
+        resp
+      }
+    }
+  }
+
   override def updateVulnerability(vuln: Vulnerability, diff: SetDiff[ReportInfo], ticket: String): Future[Unit] = {
     val requiredTransitionOption = diff.whichNonEmpty match {
       case SetDiff.Selection.Old => noRelevantProjectAffectedTransitionNameOption
@@ -66,8 +85,7 @@ class JiraIssueTrackerService @Inject()(absolutizer: Absolutizer, @Named("jira-s
       case SetDiff.Selection.None => sys.error("this should not happpen")
     }
     val transitionOptionFuture = requiredTransitionOption.map{ requiredTransition =>
-      api(s"issue/$ticket/transitions").get().map{resp =>
-        assert(resp.status == 200)
+      api(s"issue/$ticket/transitions").get().requireSuccess.map{resp =>
         resp.json.validate[Transitions].recover{case e => sys.error(s"Bad JSON: "+e+"\n\n"+resp.json)}.get.transitions.filter(_.name == requiredTransition) match {
           case Seq() => None
           case Seq(i) => Some(i)
@@ -79,12 +97,7 @@ class JiraIssueTrackerService @Inject()(absolutizer: Absolutizer, @Named("jira-s
       val fieldsJson = Json.obj(
         "fields" -> extractManagedFields(vuln, diff.newSet)
       )
-      api(s"issue/$ticket").put(transitionJson ++ fieldsJson).map{ resp =>
-        if(resp.status != 204){
-          sys.error("Update failed: "+resp.body)
-        }
-        ()
-      }
+      api(s"issue/$ticket").put(transitionJson ++ fieldsJson).requireStatus(204).map{ resp => () }
     }
   }
 
