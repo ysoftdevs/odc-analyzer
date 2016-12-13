@@ -53,7 +53,7 @@ class JiraIssueTrackerService @Inject()(absolutizer: Absolutizer, @Named("jira-s
   )).map(response => // returns responses like {"id":"1234","key":"PROJ-6","self":"https://…/rest/api/2/issue/1234"}
     try{
       val issueInfo = Json.reads[JiraNewIssueResponse].reads(response.json).get
-      ExportedVulnerability(vulnerabilityName = vulnerability.name, ticket = issueInfo.key, ticketFormatVersion = ticketFormatVersion)
+      ExportedVulnerability(vulnerabilityName = vulnerability.name, ticket = issueInfo.key, ticketFormatVersion = ticketFormatVersion, done = false)
     }catch{
       case e:Throwable=>sys.error("bad data: "+response.body)
     }

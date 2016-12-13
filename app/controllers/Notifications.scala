@@ -25,6 +25,7 @@ class Notifications @Inject()(
   dependencyCheckReportsParser: DependencyCheckReportsParser,
   issueTrackerServiceOption: Option[IssueTrackerService],
   emailExportServiceOption: Option[EmailExportService],
+  odcService: OdcService,
   absolutizer: Absolutizer,
   val env: AuthEnv
 )(implicit val messagesApi: MessagesApi, executionContext: ExecutionContext) extends AuthenticatedController {
@@ -59,23 +60,26 @@ class Notifications @Inject()(
   ) = {
     val vulnerabilitiesByName = lds.vulnerabilitiesToDependencies.map{case (v, deps) => (v.name, (v, deps))}
     for{
-      tickets <- ep.ticketsForVulnerabilities(lds.vulnerabilityNames)
+      tickets <- ep.loadUnfinishedTickets().map(_.map{case rec @ (id, ticket) => ticket.vulnerabilityName->rec}.toMap)
       // Check existing tickets
       existingTicketsIds = tickets.values.map(_._1).toSet
-      ticketsById = tickets.values.map{case (id, ev) => id -> ev}.toMap
+      ticketsById = tickets.values.toMap
       existingTicketsProjects <- ep.projectsForTickets(existingTicketsIds)
       projectUpdates <- Future.traverse(existingTicketsIds){ ticketId =>  // If we traversed over existingTicketsProjects, we would skip vulns with no projects
         val oldProjectIdsSet = existingTicketsProjects(ticketId)
         val exportedVulnerability = ticketsById(ticketId)
         val vulnerabilityName = exportedVulnerability.vulnerabilityName
         val failedOldProjects = oldProjectIdsSet.filter(failedProjects.isFailed)
-        val newKnownProjectIdsSet = vulnerabilitiesByName(vulnerabilityName)._2.flatMap(_.projects).map(_.fullId)
+        val newKnownProjectIdsSet = vulnerabilitiesByName.get(vulnerabilityName).fold(Set[String]())(_._2.flatMap(_.projects).map(_.fullId))
         val allNewProjectIdsSet = newKnownProjectIdsSet ++ failedOldProjects  //If build for a project currently fails and it used to be affected, consider it as still affected. This prevents sudden switching these two states.
         val diff = new SetDiff(oldSet = oldProjectIdsSet, newSet = allNewProjectIdsSet)
         if(diff.nonEmpty) {
-          reportChangedProjectsForVulnerability(lds.vulnerabilitiesByName(vulnerabilityName), diff, exportedVulnerability.ticket).flatMap { _ =>
-            ep.changeProjects(ticketId, diff, projects)
-          }.map( _ => Some(diff))
+          for{
+            // Try to load vuln from memory; If the vuln has disappeared, we have to load it from DB.
+            vulnerability <- lds.vulnerabilitiesByName.get(vulnerabilityName).fold(odcService.getVulnerabilityDetails(vulnerabilityName).map(_.get))(Future(_))
+            (_: Unit) <- reportChangedProjectsForVulnerability(vulnerability, diff, exportedVulnerability.ticket)
+            (_: Unit) <- ep.changeProjects(ticketId, diff, projects)
+          } yield Some(diff)
         } else {
           Fut(None)
         }
@@ -88,7 +92,7 @@ class Notifications @Inject()(
           ep.addTicket(ticket, dependencies.flatMap(_.projects)).map(_ => ticket.ticket)
         }
       }
-    } yield (missingTickets, newTicketIds, projectUpdates.toSet: Set[Any])
+    } yield (missingTickets, newTicketIds, projectUpdates.toSet: Set[Option[Any]])
   }
 
   private def exportFailedReports(lds: LibDepStatistics, failed: FailedProjects): Future[Unit] = {
@@ -138,11 +142,11 @@ class Notifications @Inject()(
     }
   }
 
-  private def forService[S, T](serviceOption: Option[S])(f: S => Future[(Set[String], Set[T], Set[Any])]) = serviceOption.fold(Fut((Set[String](), Set[T](), Set[Any]())))(f)
+  private def forService[S, T](serviceOption: Option[S])(f: S => Future[(Set[String], Set[T], Set[Option[Any]])]) = serviceOption.fold(Fut((Set[String](), Set[T](), Set[Option[Any]]())))(f)
 
   private def exportToEmail(lds: LibDepStatistics, failedProjects: FailedProjects, p: ProjectsWithReports) = forService(emailExportServiceOption){ emailExportService =>
     notifyVulnerabilities[EmailMessageId](lds, failedProjects, notificationService.mailExport, p) { (vulnerability, dependencies) =>
-      emailExportService.mailForVulnerability(vulnerability, dependencies).flatMap(emailExportService.sendEmail).map(id => ExportedVulnerability(vulnerability.name, EmailMessageId(id), 0))
+      emailExportService.mailForVulnerability(vulnerability, dependencies).flatMap(emailExportService.sendEmail).map(id => ExportedVulnerability(vulnerability.name, EmailMessageId(id), 0, done = false))
     }{ (vuln, diff, msgid) =>
       emailExportService.mailForVulnerabilityProjectsChange(vuln, msgid, diff, p).flatMap(emailExportService.sendEmail).map(_ => ())
     }
@@ -166,7 +170,7 @@ class Notifications @Inject()(
       val affectedProjects = dependencies.flatMap(_.projects)
       val diff = new SetDiff(Set(), affectedProjects)
       notificationService.changeAffectedProjects(vulnerability.name, diff.map(_.fullId)).map{_ =>
-        ExportedVulnerability[String](vulnerabilityName = vulnerability.name, ticket = vulnerability.name, ticketFormatVersion = 0)
+        ExportedVulnerability[String](vulnerabilityName = vulnerability.name, ticket = vulnerability.name, ticketFormatVersion = 0, done = false)
       }
     }{ (vulnerability, diff, id) =>
       notificationService.changeAffectedProjects(vulnerability.name, diff)
