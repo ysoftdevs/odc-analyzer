@@ -6,8 +6,10 @@ import com.google.inject.name.Named
 import com.ysoft.odc.{Absolutizer, AtlassianAuthentication, SetDiff}
 import controllers.{ReportInfo, Vulnerability, friendlyProjectNameString, routes}
 import models.ExportedVulnerability
+import play.api.Logger
 import play.api.libs.json.Json.JsValueWrapper
 import play.api.libs.json._
+import play.api.libs.json.Json.obj
 import play.api.libs.ws.{WS, WSClient, WSResponse}
 import services.JiraIssueTrackerService.Fields
 
@@ -71,7 +73,7 @@ class JiraIssueTrackerService @Inject()(absolutizer: Absolutizer, @Named("jira-s
     def requireStatus(expectedStatus: Int): Future[WSResponse] = {
       r.map{ resp =>
         if(resp.status != expectedStatus){
-          sys.error(s"Request expected to end with status $expectedStatus, but it has failed with ${resp.status} / ${resp.statusText}.")
+          sys.error(s"Request expected to end with status $expectedStatus, but it has failed with ${resp.status} / ${resp.statusText}. Response:\n"+resp.body)
         }
         resp
       }
@@ -92,12 +94,14 @@ class JiraIssueTrackerService @Inject()(absolutizer: Absolutizer, @Named("jira-s
         }
       }
     }.getOrElse(Future.successful(None))
-    transitionOptionFuture flatMap {transitionOption =>
-      val transitionJson = transitionOption.fold(Json.obj())(transition => Json.obj("transition" -> Json.obj("id" -> transition.id)))
-      val fieldsJson = Json.obj(
-        "fields" -> extractManagedFields(vuln, diff.newSet)
-      )
-      api(s"issue/$ticket").put(transitionJson ++ fieldsJson).requireStatus(204).map{ resp => () }
+    val fieldsUpdateResult = api(s"issue/$ticket").put(obj(
+      "fields" -> extractManagedFields(vuln, diff.newSet)
+    )).requireStatus(204).map{ resp => () }
+    fieldsUpdateResult.flatMap { (_: Unit) =>
+      transitionOptionFuture flatMap {
+        case Some(transition) => api(s"issue/$ticket/transitions").post(obj("transition" -> obj("id" -> transition.id))).requireStatus(204).map{resp =>()}
+        case None => Future.successful(())
+      }
     }
   }
 
