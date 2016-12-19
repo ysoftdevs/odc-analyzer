@@ -25,8 +25,9 @@ class ProjectReportsProvider @Inject() (
     (implicit executionContext: ExecutionContext): Future[T] =
   {
     cache.get[T](name).map(Future.successful).getOrElse(
-      f.andThen{
-        case Success(value) =>cache.set(name, value, expiration)
+      f.map{ value =>
+        cache.set(name, value, expiration)
+        value
       }
     )
   }
