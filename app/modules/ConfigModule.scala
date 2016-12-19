@@ -34,11 +34,9 @@ class FileCacheApi(path: Path) extends CacheApi{
   private def cacheFile(name: String) = path.resolve("X-"+URLEncoder.encode(name, "utf-8"))
   override def remove(key: String): Unit = Files.deleteIfExists(cacheFile(key))
 
-  private def serialize(value: Any, duration: Duration) = {
-    val out = new ByteArrayOutputStream()
+  private def serialize(out: ObjectOutputStream, value: Any, duration: Duration) = {
     import com.github.nscala_time.time.Imports._
-    new ObjectOutputStream(out).writeObject((value, if(duration.isFinite()) Some(DateTime.now.plus(duration.toMillis)) else None))
-    out.toByteArray
+    out.writeObject((value, if(duration.isFinite()) Some(DateTime.now.plus(duration.toMillis)) else None))
   }
 
   private def unserialize[T](data: Array[Byte]): Try[T] = {
@@ -56,7 +54,9 @@ class FileCacheApi(path: Path) extends CacheApi{
   }
 
   override def set(key: String, value: Any, expiration: Duration): Unit = {
-    Files.write(cacheFile(key), serialize(value, expiration))
+    for(out <- resource.managed(new ObjectOutputStream(new FileOutputStream(cacheFile(key).toFile)))){
+      serialize(out, value, expiration)
+    }
   }
 
   override def get[T: ClassTag](key: String): Option[T] = {
