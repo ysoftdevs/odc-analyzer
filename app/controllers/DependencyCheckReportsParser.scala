@@ -123,6 +123,7 @@ object DependencyCheckReportsParser{
     lazy val groupedDependenciesByPlainLibraryIdentifier: Map[PlainLibraryIdentifier, Set[GroupedDependency]] =
       groupedDependencies.toSet.flatMap((grDep: GroupedDependency) => grDep.plainLibraryIdentifiers.map(_ -> grDep)).groupBy(_._1).mapValues(_.map(_._2)).map(identity)
     lazy val vulnerableDependencies = groupedDependencies.filter(_.vulnerabilities.nonEmpty)
+    lazy val suppressedOnlyDependencies = groupedDependencies.filter(gd => gd.vulnerabilities.isEmpty && gd.suppressedIdentifiers.nonEmpty)
 
     private val ProjectSelectorPattern = """^project:(.*)$""".r
     private val TeamSelectorPattern = """^team:(.*)$""".r

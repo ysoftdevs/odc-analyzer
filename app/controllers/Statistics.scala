@@ -202,6 +202,7 @@ class Statistics @Inject() (
         Future.successful(Ok(views.html.statistics.vulnerableLibraries(
           projectsWithSelection = selection.projectsWithSelection,
           vulnerableDependencies = reports.vulnerableDependencies,
+          dependenciesWithSuppressedVulnerabilitiesOnlyCount = reports.suppressedOnlyDependencies.size,
           allDependenciesCount = reports.groupedDependencies.size,
           reports = reports
         )))

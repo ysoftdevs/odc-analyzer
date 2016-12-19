@@ -83,6 +83,7 @@ final case class GroupedDependency(dependencies: Map[Dependency, Set[ReportInfo]
   def mavenIdentifiers = identifiers.filter(_.identifierType == "maven")
   def cpeIdentifiers = identifiers.filter(_.identifierType == "cpe")
   def vulnerabilities: Set[Vulnerability] = dependencies.keySet.flatMap(_.vulnerabilities)
+  def suppressedVulnerabilities: Set[Vulnerability] = dependencies.keySet.flatMap(_.suppressedVulnerabilities)
   def plainLibraryIdentifiers: Set[PlainLibraryIdentifier] = identifiers.flatMap(_.toLibraryIdentifierOption)
   def hasCpe: Boolean = cpeIdentifiers.nonEmpty
 }

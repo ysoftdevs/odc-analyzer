@@ -2,6 +2,7 @@
     projectsWithSelection: ProjectsWithSelection,
     vulnerableDependencies: Seq[GroupedDependency],
     allDependenciesCount: Int,
+    dependenciesWithSuppressedVulnerabilitiesOnlyCount: Int,
     reports: DependencyCheckReportsParser.Result
 )(implicit header: DefaultRequest)
 
@@ -17,7 +18,9 @@
 <script type="text/javascript">
 $(document).ready(function(){
     var data = [
-        ['Vulnerable', (@(vulnerableDependencies.size))], ['No known vulnerability', (@(allDependenciesCount - vulnerableDependencies.size))]
+        ['Vulnerable', (@(vulnerableDependencies.size))],
+        ['Suppressed vulnerabilities only', (@(dependenciesWithSuppressedVulnerabilitiesOnlyCount))],
+        ['No known vulnerability', (@(allDependenciesCount - vulnerableDependencies.size - dependenciesWithSuppressedVulnerabilitiesOnlyCount))]
     ];
     var plot1 = jQuery.jqplot ('vulnerable-dependencies-chart', [data], {
         seriesDefaults: {
@@ -29,7 +32,7 @@ $(document).ready(function(){
                 showDataLabels: true,
                 dataLabels: 'value',
                 startAngle: -90,
-                seriesColors: ['red', 'green'],
+                seriesColors: ['red', 'yellow', 'green'],
                 legendOptions: {
                     textColor: 'white'
                 }
