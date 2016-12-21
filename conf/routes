@@ -23,6 +23,7 @@ GET         /stats/basic/*selector            controllers.Statistics.basic(selec
 GET         /stats/details                    controllers.Statistics.vulnerabilities(selector: Option[String], tagId: Option[Int])
 GET         /stats/libraries/vulnerable       controllers.Statistics.vulnerableLibraries(selector: Option[String])
 GET         /stats/libraries/all              controllers.Statistics.allLibraries(selector: Option[String])
+GET         /stats/libraries/files            controllers.Statistics.allFiles(selector: Option[String])
 GET         /stats/libraries/gavs             controllers.Statistics.allGavs(selector: Option[String])
 
 GET         /notifications                    controllers.Notifications.listProjects()

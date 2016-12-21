@@ -210,6 +210,17 @@ class Statistics @Inject() (
     }
   }
 
+  def allFiles(selectorOption: Option[String]) = ReadAction.async { implicit req =>
+    val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
+    resultsFuture flatMap { allResults =>
+      select(allResults, selectorOption).fold(Future.successful(notFound())){ selection =>
+        Future.successful(Ok(Txt(
+          selection.result.groupedDependencies.flatMap(_.fileNames.map(_.replace('\\', '/'))).toSet.toIndexedSeq.sorted.mkString("\n")
+        )))
+      }
+    }
+  }
+
   def allLibraries(selectorOption: Option[String]) = ReadAction.async { implicit req =>
     val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
     resultsFuture flatMap { allResults =>
