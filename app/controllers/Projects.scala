@@ -1,36 +1,11 @@
 package controllers
 
-import javax.inject.Inject
-
-import play.api.Configuration
-
-class Projects @Inject() (configuration: Configuration) {
-  import scala.collection.JavaConversions._
-  val projectMap = {
-    val projectsConfig = configuration.getObject("yssdc.projects").getOrElse(sys.error("yssdc.projects is not set")).toConfig
-    projectsConfig.entrySet().map( k => k.getKey -> projectsConfig.getString(k.getKey)).toMap
-  }
-  val projectSet = projectMap.keySet
-  private val teamIdSet = configuration.getStringSeq("yssdc.teams").getOrElse(sys.error("yssdc.teams is not set")).map(TeamId).toSet
-  private val teamsByIds = teamIdSet.map(t => t.id -> t).toMap
-  private val teamLeaders = {
-    import scala.collection.JavaConversions._
-    configuration.getObject("yssdc.teamLeaders").getOrElse(sys.error("yssdc.teamLeaders is not set")).map{case(k, v) =>
-      TeamId(k) -> v.unwrapped().asInstanceOf[String]
-    }
-  }
-  {
-    val extraTeams = teamLeaders.keySet -- teamIdSet
-    if(extraTeams.nonEmpty){
-      sys.error(s"Some unexpected teams: $extraTeams")
-    }
-  }
-
-  private def existingTeamId(s: String): TeamId = teamsByIds(s)
-
-  private val projectToTeams = configuration.getObject("yssdc.projectsToTeams").get.mapValues{_.unwrapped().asInstanceOf[java.util.List[String]].map(c =>
-    existingTeamId(c)
-  ).toSet}.map(identity)
+class Projects (
+  val projectMap: Map[String, String],
+  private val teamLeaders: Map[TeamId, String],
+  private val projectToTeams: Map[String, Set[TeamId]]
+) {
+  val projectSet: Set[String] = projectMap.keySet
 
   private val projectAndTeams = projectToTeams.toSeq.flatMap{case (project, teams) => teams.map(team => (project, team))}
 
@@ -45,8 +20,8 @@ class Projects @Inject() (configuration: Configuration) {
     projectNames = projectNames
   )
 
-  def teamById(id: String) = teamsById(id)
+  def teamById(id: String): Team = teamsById(id)
 
-  def teamSet = teamsById.values.toSet
+  def teamSet: Set[Team] = teamsById.values.toSet
 
 }

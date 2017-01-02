@@ -7,7 +7,7 @@ import java.util.concurrent.Executors
 
 import akka.util.ClassLoaderObjectInputStream
 import com.ysoft.odc._
-import controllers.{MissingGavExclusions, WarningSeverity}
+import controllers.{MissingGavExclusions, Projects, TeamId, WarningSeverity}
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 import play.api.cache.CacheApi
@@ -15,6 +15,7 @@ import play.api.inject.{Binding, Module}
 import play.api.{Configuration, Environment, Logger}
 import services.IssueTrackerService
 
+import scala.collection.mutable
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
 import scala.reflect.ClassTag
@@ -89,6 +90,30 @@ class ConfigModule extends Module {
   private val bambooAuthentication = bind[AtlassianAuthentication].qualifiedWith("bamboo-authentication")
   //private val jiraAuthentication = bind[AtlassianAuthentication].qualifiedWith("jira-authentication")
 
+  private def parseProjects(configuration: Configuration): Projects = {
+    import scala.collection.JavaConversions._
+    val teamLeaders = configuration.getObject("yssdc.teamLeaders").getOrElse(sys.error("yssdc.teamLeaders is not set")).map { case (k, v) =>
+      TeamId(k) -> v.unwrapped().asInstanceOf[String]
+    }.toMap // Calling .toMap is needed for immutable Map.
+    val teamIdSet = configuration.getStringSeq("yssdc.teams").getOrElse(sys.error("yssdc.teams is not set")).map(TeamId).toSet
+    val teamsByIds = teamIdSet.map(t => t.id -> t).toMap
+    val extraTeams = teamLeaders.keySet -- teamIdSet
+    if(extraTeams.nonEmpty){
+      sys.error(s"Some unexpected teams: $extraTeams")
+    }
+    def existingTeamId(s: String): TeamId = teamsByIds(s)
+    new Projects(
+      projectMap = {
+        val projectsConfig = configuration.getObject("yssdc.projects").getOrElse(sys.error("yssdc.projects is not set")).toConfig
+        projectsConfig.entrySet().map( k => k.getKey -> projectsConfig.getString(k.getKey)).toMap
+      },
+      teamLeaders = teamLeaders,
+      projectToTeams = configuration.getObject("yssdc.projectsToTeams").get.mapValues{_.unwrapped().asInstanceOf[java.util.List[String]].map(c =>
+        existingTeamId(c)
+      ).toSet}.toMap.map(identity) // Calling .toMap is needed for immutable Map.
+    )
+  }
+
   override def bindings(environment: Environment, configuration: Configuration): Seq[Binding[_]] = Seq(
     bind[String].qualifiedWith("bamboo-server-url").toInstance(configuration.getString("yssdc.bamboo.url").getOrElse(sys.error("Key yssdc.bamboo.url is not set"))),
     configuration.getString("yssdc.reports.provider") match{
@@ -100,7 +125,8 @@ class ConfigModule extends Module {
       configuration.getStringSeq("yssdc.exclusions.missingGAV.bySha1").getOrElse(Seq()).toSet.map(Exclusion))
     ),
     bind[ExecutionContext].qualifiedWith("email-sending").toInstance(ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())),
-    bind[LogSmellChecks].qualifiedWith("log-smells").toInstance(LogSmellChecks(configuration.underlying.getAs[Map[String, LogSmell]]("yssdc.logSmells").getOrElse(Map())))
+    bind[LogSmellChecks].qualifiedWith("log-smells").toInstance(LogSmellChecks(configuration.underlying.getAs[Map[String, LogSmell]]("yssdc.logSmells").getOrElse(Map()))),
+    bind[Projects].to(parseProjects(configuration))
   ) ++
     configuration.underlying.getAs[Absolutizer]("app").map(a => bind[Absolutizer].toInstance(a)) ++
     configuration.getString("play.cache.path").map(cachePath => bind[CacheApi].toInstance(new FileCacheApi(Paths.get(cachePath)))) ++
