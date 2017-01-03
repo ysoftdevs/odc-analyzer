@@ -2,7 +2,7 @@ name := """odc-analyzer"""
 
 version := "1.0-SNAPSHOT"
 
-lazy val root = (project in file(".")).enablePlugins(PlayScala)
+lazy val root = (project in file(".")).enablePlugins(PlayScala).enablePlugins(SonarRunnerPlugin)
 
 scalaVersion := "2.11.8"
 
@@ -98,6 +98,9 @@ routesImport += "binders.QueryBinders._"
 // other, legacy style, accesses its actions statically.
 routesGenerator := InjectedRoutesGenerator
 
+val sonarEnvPrefix = sys.props.getOrElse("sonarEnvPrefix", "sonar_")
+
+sonarProperties ++= sys.env.filter(_._1.startsWith(sonarEnvPrefix)).map{case (k, v) => k.drop(sonarEnvPrefix.length).replace('_', '.') -> v}
 
 scalacOptions ++= Seq(
   "-deprecation", // Emit warning and location for usages of deprecated APIs.
