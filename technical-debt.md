@@ -38,9 +38,11 @@ Note that this was a quick hack that allows e-mail notifications.
     * PlainLibraryIdentifier is just version-less (e.g. `"$groupId:$artifactId"`) library identifier.
 * Some other naming issues are described in code under TODOs.
 
-## Lack of automated tests
+## Few automated tests
 
-The lack of automated tests is mainly caused by economical view. It is useful to write cheap tests for likely defects. However, it seems that most issues come from integration with external environment and it is hard to write automated tests for that, while typical candidates for unit tests is a code that does not break very much.
+The small number automated tests is mainly caused by economical view. It is useful to write cheap tests for likely defects. However, it seems that most issues come from integration with external environment and it is hard to write automated tests for that, while typical candidates for unit tests is a code that does not break very much.
+
+Few parts of the code are now automatically tested.
 
 ### Some candidates for automated tests:
 
