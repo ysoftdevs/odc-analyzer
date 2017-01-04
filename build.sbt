@@ -14,8 +14,8 @@ libraryDependencies ++= Seq(
   //jdbc,
   cache,
   ws,
-  filters
-  //specs2 % Test
+  filters,
+  specs2 % Test
 )
 
 //resolvers += "scalaz-bintray" at https?"http://dl.bintray.com/scalaz/releases"

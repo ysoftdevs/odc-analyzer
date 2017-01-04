@@ -20,7 +20,7 @@ sealed trait Filter{
   def descriptionHtml: Html
   def descriptionText: String
 }
-private final case class ProjectFilter(project: ReportInfo) extends Filter{
+final case class ProjectFilter(project: ReportInfo) extends Filter{
   override def filters: Boolean = true
   override def descriptionHtml: Html = views.html.filters.project(project)
   override def descriptionText: String = s"project ${friendlyProjectNameString(project)}"
@@ -43,7 +43,7 @@ private final case class ProjectFilter(project: ReportInfo) extends Filter{
   }
   override def selector = Some(s"project:${project.fullId}")
 }
-private final case class TeamFilter(team: Team) extends Filter{
+final case class TeamFilter(team: Team) extends Filter{
   override def filters: Boolean = true
 
   private def splitSuccessesAndFailures[T, U](set: Set[Either[T, U]]) = {
@@ -64,10 +64,10 @@ private final case class TeamFilter(team: Team) extends Filter{
     val ProjectName = """^(.*): (.*)$""".r
     val failedProjectsFriendlyNames = r.failedProjects.failedProjectsSet.map(_.projectName)
     Logger.error("failedProjectsFriendlyNames: "+failedProjectsFriendlyNames)
-    val rootProjectReports = reportInfoByFriendlyProjectNameMap.map{
+    val rootProjectReports = reportInfoByFriendlyProjectNameMap.toSeq.map{
       case (ProjectName(rootProject, _subproject), v) => (rootProject, v)
       case value @ (rootProject, v) => value
-    }.groupBy(_._1).mapValues(_.values).withDefault(name =>
+    }.groupBy(_._1).mapValues(_.map(_._2)).withDefault(name =>
       if(failedProjectsFriendlyNames contains name) Seq()
       else sys.error("Unknown project: "+name)
     )

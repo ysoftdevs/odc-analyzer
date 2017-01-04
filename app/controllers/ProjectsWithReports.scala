@@ -59,7 +59,7 @@ class ProjectsWithReports (val projects: Projects, val reports: Set[String]) {
 
   private def parseUnfriendlyName(unfriendlyName: String, missingProject: String => String): ReportInfo = {
     val (baseName, theRest) = unfriendlyName.span(_ != '/')
-    val removeLeadingMess = RestMessBeginRegexp.replaceAllIn(_: String, "")
+    val removeLeadingMess = RestMessBeginRegexp.replaceAllIn(_: String, "").dropWhile(_=='/')
     val removeTrailingMess = RestMessEndRegexp.replaceAllIn(_: String, "")
     val removeMess = removeLeadingMess andThen removeTrailingMess
     val subProjectOption = Some(removeMess(theRest)).filter(_ != "")
