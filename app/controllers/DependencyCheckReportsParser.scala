@@ -63,7 +63,6 @@ final case class TeamFilter(team: Team) extends Filter{
     val reportInfoByFriendlyProjectNameMap = toMapStrict(r.projectsReportInfo.ungroupedReportsInfo.map(ri => friendlyProjectNameString(ri) -> ri))
     val ProjectName = """^(.*): (.*)$""".r
     val failedProjectsFriendlyNames = r.failedProjects.failedProjectsSet.map(_.projectName)
-    Logger.error("failedProjectsFriendlyNames: "+failedProjectsFriendlyNames)
     val rootProjectReports = reportInfoByFriendlyProjectNameMap.toSeq.map{
       case (ProjectName(rootProject, _subproject), v) => (rootProject, v)
       case value @ (rootProject, v) => value
@@ -81,7 +80,7 @@ final case class TeamFilter(team: Team) extends Filter{
     val (reportInfosDeep, projectsNotFound) = splitSuccessesAndFailures(team.projectNames.map(reportInfoByFriendlyProjectName))
     val reportInfos: Set[ReportInfo] = reportInfosDeep.flatten
     def submap[T](m: Map[ReportInfo, T]) = reportInfos.toSeq.flatMap(ri => m.get(ri).map(ri -> _) ).toMap
-    def submapBare[T](m: Map[ReportInfo, T]): Map[ReportInfo, T] = reportInfos.toSeq.flatMap(ri => m.get(ri.bare.ensuring{x => println(x.fullId); true}).map(ri -> _) ).toMap
+    def submapBare[T](m: Map[ReportInfo, T]): Map[ReportInfo, T] = reportInfos.toSeq.flatMap(ri => m.get(ri.bare).map(ri -> _) ).toMap
     // TODO: projectsNotFoundMap is a hack for reporting errors to humans, because there is no suitable category for such errors
     val projectsNotFoundMap = projectsNotFound.map(name => ReportInfo("name: " + name, name, "name: " + name, None) -> new RuntimeException("Project " + name + " not found")).toMap
     Some(Result(
