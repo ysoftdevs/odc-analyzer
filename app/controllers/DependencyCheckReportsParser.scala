@@ -63,10 +63,10 @@ final case class TeamFilter(team: Team) extends Filter{
     val reportInfoByFriendlyProjectNameMap = toMapStrict(r.projectsReportInfo.ungroupedReportsInfo.map(ri => friendlyProjectNameString(ri) -> ri))
     val ProjectName = """^(.*): (.*)$""".r
     val failedProjectsFriendlyNames = r.failedProjects.failedProjectsSet.map(_.projectName)
-    val rootProjectReports = reportInfoByFriendlyProjectNameMap.toSeq.map{
-      case (ProjectName(rootProject, _subproject), v) => (rootProject, v)
-      case value @ (rootProject, v) => value
-    }.groupBy(_._1).mapValues(_.map(_._2)).withDefault(name =>
+    val rootProjectReports = reportInfoByFriendlyProjectNameMap.groupBy{
+      case (ProjectName(rootProject, _subproject), v) => rootProject
+      case (rootProject, v) => rootProject
+    }.mapValues(_.values).map(identity).withDefault(name =>
       if(failedProjectsFriendlyNames contains name) Seq()
       else sys.error("Unknown project: "+name)
     )
