@@ -18,7 +18,7 @@ libraryDependencies ++= Seq(
   specs2 % Test
 )
 
-//resolvers += "scalaz-bintray" at https?"http://dl.bintray.com/scalaz/releases"
+resolvers += "scalaz-bintray" at "https://dl.bintray.com/scalaz/releases"
 
 libraryDependencies += "com.lihaoyi" %% "upickle" % "0.3.4"
 
