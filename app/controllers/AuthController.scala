@@ -55,7 +55,7 @@ class AuthController @Inject() (
               )
             } yield res
           case Left(errorMessage) =>
-            Future.successful(Redirect(routes.AuthController.signIn(callback)).flashing("error" -> Messages("invalid.credentials")))
+            Future.successful(Redirect(routes.AuthController.signIn(callback)).flashing("error" -> errorMessage))
         }
       }
     )
