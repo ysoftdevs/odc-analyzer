@@ -88,6 +88,10 @@ class Application @Inject() (
     }
   }
 
+  def homepage() = Action{
+    Redirect(routes.Statistics.vulnerableLibraries(None))
+  }
+
   def index(versions: Map[String, Int]) = ReadAction.async{ implicit req =>
     loadSnoozes() flatMap { snoozes =>
       indexPage(versions)(snoozes, securedRequestToUserAwareRequest(req))

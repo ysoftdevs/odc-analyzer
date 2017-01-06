@@ -3,7 +3,8 @@
 # ~~~~
 
 # Home page
-GET         /                                 controllers.Application.index(versions: Map[String, Int] = Map())
+GET         /                                 controllers.Application.homepage()
+GET         /status                           controllers.Application.index(versions: Map[String, Int] = Map())
 GET         /versions                         controllers.Application.index(versions: Map[String, Int])
 GET         /dependencies                     controllers.Application.dependencies(classified: Option[Boolean] = None,        requiredTags: Seq[Int] ?= Seq(), noTag: Boolean ?= false)
 GET         /dependencies/classified          controllers.Application.dependencies(classified: Option[Boolean] = Some(true),  requiredTags: Seq[Int] ?= Seq(), noTag: Boolean ?= false)
