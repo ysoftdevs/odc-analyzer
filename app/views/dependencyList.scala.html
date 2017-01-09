@@ -48,6 +48,15 @@
                 <th>source</th>
                 <th>value</th>
             </tr>
+            @for(fileName <- dep.fileNames.toIndexedSeq.sorted){
+                <tr>
+                    <td></td>
+                    <td><i>filename</i></td>
+                    <td></td>
+                    <td></td>
+                    <td>@fileName</td>
+                </tr>
+            }
             @for(ev <- dep.dependencies.keySet.map(_.evidenceCollected).flatten){
                 <tr>
                     <td>@ev.confidence
