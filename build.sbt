@@ -73,7 +73,7 @@ libraryDependencies += "org.webjars.bower" % "jquery.scrollTo" % "2.1.2"
 
 libraryDependencies += "net.codingwell" %% "scala-guice" % "4.0.0"
 
-libraryDependencies += "com.iheart" %% "ficus" % "1.2.3"
+libraryDependencies += "com.iheart" %% "ficus" % "1.4.0"
 
 libraryDependencies += "org.owasp" % "dependency-check-core" % "1.4.2"
 

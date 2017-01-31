@@ -6,7 +6,9 @@ import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.Executors
 
 import akka.util.ClassLoaderObjectInputStream
+import com.typesafe.config.{Config, ConfigObject, ConfigValue}
 import com.ysoft.odc._
+import controllers.api._
 import controllers.{MissingGavExclusions, Projects, TeamId, WarningSeverity}
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
@@ -114,6 +116,33 @@ class ConfigModule extends Module {
     )
   }
 
+  private def parseApiApplication(value: Config): ApiApplication = {
+    import scala.collection.JavaConversions._
+    val authenticatedApiApplication = new AuthenticatedApiApplication(
+      value.getStringList("resources").map(resName =>
+        ApiResources.byName(resName).getOrElse(sys.error(s"unknown resource $resName"))
+      ).toSet)
+    value.getString("tokenType") match {
+      case "plain" => new ApiApplication.Plain(value.getString("token"), authenticatedApiApplication)
+    }
+  }
+
+  private def parseApiConfig(configuration: Configuration): ApiConfig = {
+    import scala.collection.JavaConversions._
+    new ApiConfig(
+      configuration.getObject("yssdc.api.apps") match {
+        case None => Map.empty[String, ApiApplication]
+        case Some(obj) => Map(
+          (
+            for{
+              (key, value) <- obj
+            } yield key -> parseApiApplication(value.asInstanceOf[ConfigObject].toConfig)
+          ).toSeq: _*
+        )
+      }
+    )
+  }
+
   override def bindings(environment: Environment, configuration: Configuration): Seq[Binding[_]] = Seq(
     bind[String].qualifiedWith("bamboo-server-url").toInstance(configuration.getString("yssdc.bamboo.url").getOrElse(sys.error("Key yssdc.bamboo.url is not set"))),
     configuration.getString("yssdc.reports.provider") match{
@@ -126,7 +155,8 @@ class ConfigModule extends Module {
     ),
     bind[ExecutionContext].qualifiedWith("email-sending").toInstance(ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())),
     bind[LogSmellChecks].qualifiedWith("log-smells").toInstance(LogSmellChecks(configuration.underlying.getAs[Map[String, LogSmell]]("yssdc.logSmells").getOrElse(Map()))),
-    bind[Projects].to(parseProjects(configuration))
+    bind[Projects].to(parseProjects(configuration)),
+    bind[ApiConfig].to(parseApiConfig(configuration))
   ) ++
     configuration.underlying.getAs[Absolutizer]("app").map(a => bind[Absolutizer].toInstance(a)) ++
     configuration.getString("play.cache.path").map(cachePath => bind[CacheApi].toInstance(new FileCacheApi(Paths.get(cachePath)))) ++

@@ -6,16 +6,23 @@ import com.google.inject.name.Named
 import com.ysoft.odc.statistics.{LibDepStatistics, TagStatistics}
 import com.ysoft.odc.{ArtifactFile, ArtifactItem}
 import controllers.DependencyCheckReportsParser.ResultWithSelection
-import models.{ExportedVulnerability, LibraryTag}
+import controllers.api.{ApiConfig, ApiController}
+import models.LibraryTag
 import org.joda.time.DateTime
 import play.api.i18n.MessagesApi
+import play.api.libs.json._
 import play.twirl.api.Txt
 import services._
 import views.html.DefaultRequest
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class Statistics @Inject() (
+final case class ScannedRepository(url: String, branch: String)
+
+final case class ScannedProject(name: String, repos: Seq[ScannedRepository], projects: Seq[String], key: String)
+
+//noinspection TypeAnnotation
+class Statistics @Inject()(
   reportsParser: DependencyCheckReportsParser,
   reportsProcessor: DependencyCheckReportsProcessor,
   projectReportsProvider: ProjectReportsProvider,
@@ -28,8 +35,9 @@ class Statistics @Inject() (
   projects: Projects,
   vulnerabilityNotificationService: VulnerabilityNotificationService,
   issueTrackerServiceOption: Option[IssueTrackerService],
+  protected val apiConfig: ApiConfig,
   val env: AuthEnv
-)(implicit val messagesApi: MessagesApi, executionContext: ExecutionContext) extends AuthenticatedController {
+)(implicit val messagesApi: MessagesApi, executionContext: ExecutionContext) extends AuthenticatedController with ApiController {
 
   private val versions = Map[String, Int]()
 
@@ -193,6 +201,26 @@ class Statistics @Inject() (
       }
     }
   }
+
+  implicit val scannedRepositoryFormat = Json.format[ScannedRepository]
+  implicit val scannedProjectFormats = Json.format[ScannedProject]
+
+
+  def table() = ApiAction(ProjectTable).async{
+    val RepoFetch = """.*Fetching 'refs/heads/(.*)' from '(.*)'\..*""".r  // Bamboo does not seem to have a suitable API, so we are parsing it from logs…
+    val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
+    resultsFuture map { allResults =>
+      val t = projects.projectMap
+      val rows = t.toIndexedSeq.sortBy(r => (r._2.toLowerCase, r._2)).map{case (key, name) =>
+        val repos = allResults._1.get(key).map(_._3.dataString.lines.collect{
+          case RepoFetch(branch, repo) => ScannedRepository(repo, branch)
+        }.toSet).getOrElse(Set.empty).toIndexedSeq.sortBy(ScannedRepository.unapply)
+        ScannedProject(name, repos, projects.teamsByProjectId(key).toIndexedSeq.map(_.name).sorted, key)
+      }
+      Ok(Json.toJson(rows))
+    }
+  }
+
 
   def vulnerableLibraries(selectorOption: Option[String]) = ReadAction.async { implicit req =>
     val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)

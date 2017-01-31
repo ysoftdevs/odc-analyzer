@@ -3,7 +3,7 @@ package controllers
 class Projects (
   val projectMap: Map[String, String],
   private val teamLeaders: Map[TeamId, String],
-  private val projectToTeams: Map[String, Set[TeamId]]
+  val projectToTeams: Map[String, Set[TeamId]]
 ) {
   val projectSet: Set[String] = projectMap.keySet
 
@@ -23,5 +23,10 @@ class Projects (
   def teamById(id: String): Team = teamsById(id)
 
   def teamSet: Set[Team] = teamsById.values.toSet
+
+  def teamsByProjectId(projectId: String): Set[TeamId] = projectToTeams.filter{case (projectSpecification, _) =>
+    val projectName = projectMap(projectId)
+    (projectSpecification == projectName) || (projectSpecification startsWith s"$projectName:")
+  }.values.flatten.toSet
 
 }
