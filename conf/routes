@@ -5,6 +5,7 @@
 # Home page
 GET         /                                 controllers.Application.homepage()
 GET         /api/table                        controllers.Statistics.table()
+GET         /api/all-dependencies.json        controllers.Statistics.allDependencies(selector: Option[String])
 GET         /status                           controllers.Application.index(versions: Map[String, Int] = Map())
 GET         /versions                         controllers.Application.index(versions: Map[String, Int])
 GET         /dependencies                     controllers.Application.dependencies(classified: Option[Boolean] = None,        requiredTags: Seq[Int] ?= Seq(), noTag: Boolean ?= false)

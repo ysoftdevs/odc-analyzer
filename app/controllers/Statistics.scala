@@ -3,8 +3,9 @@ package controllers
 import com.github.nscala_time.time.Imports._
 import com.google.inject.Inject
 import com.google.inject.name.Named
+import com.ysoft.odc.Confidence.Confidence
 import com.ysoft.odc.statistics.{LibDepStatistics, TagStatistics}
-import com.ysoft.odc.{ArtifactFile, ArtifactItem}
+import com.ysoft.odc.{ArtifactFile, ArtifactItem, Hashes}
 import controllers.DependencyCheckReportsParser.ResultWithSelection
 import controllers.api.{ApiConfig, ApiController}
 import models.LibraryTag
@@ -20,6 +21,28 @@ import scala.concurrent.{ExecutionContext, Future}
 final case class ScannedRepository(url: String, branch: String)
 
 final case class ScannedProject(name: String, repos: Seq[ScannedRepository], teams: Seq[String], key: String)
+
+final case class GroupedDependencyIdentifier(hashes: Hashes, identifiers: Seq[Identifier])
+
+object GroupedDependencyIdentifier{
+  def fromGroupedDependency(groupedDependency: GroupedDependency): GroupedDependencyIdentifier = GroupedDependencyIdentifier(
+    hashes = groupedDependency.hashes,
+    identifiers = groupedDependency.identifiers.toIndexedSeq.sortBy(_.name)
+  )
+}
+
+object Statistics{
+
+  // TODO: Move this to a better place
+
+
+  implicit val hashesWrites = Writes[Hashes](h => JsString(s"${h.sha1}-${h.md5}"))
+  implicit val confidenceWrites = Writes[Confidence](c => JsString(c.toString))
+  implicit val identifierWrites = Json.writes[Identifier]
+  implicit val groupedDependencyIdentifierWrites = Json.writes[GroupedDependencyIdentifier]
+  //implicit val groupedDependencyFormats = Json.format[GroupedDependency]
+
+}
 
 //noinspection TypeAnnotation
 class Statistics @Inject()(
@@ -40,6 +63,8 @@ class Statistics @Inject()(
 )(implicit val messagesApi: MessagesApi, executionContext: ExecutionContext) extends AuthenticatedController with ApiController {
 
   private val versions = Map[String, Int]()
+
+  import Statistics._
 
   private def notFound()(implicit req: DefaultRequest) = {
     NotFound(views.html.defaultpages.notFound("GET", req.uri))
@@ -205,7 +230,6 @@ class Statistics @Inject()(
   implicit val scannedRepositoryFormat = Json.format[ScannedRepository]
   implicit val scannedProjectFormats = Json.format[ScannedProject]
 
-
   def table() = ApiAction(ProjectTable).async{
     val RepoFetch = """.*Fetching 'refs/heads/(.*)' from '(.*)'\..*""".r  // Bamboo does not seem to have a suitable API, so we are parsing it from logs…
     val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
@@ -220,6 +244,18 @@ class Statistics @Inject()(
       Ok(Json.toJson(rows))
     }
   }
+
+  def allDependencies(selectorOption: Option[String]) = ApiAction(Dependencies).async { implicit req =>
+    val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
+    resultsFuture flatMap { allResults =>
+      select(allResults, selectorOption).fold(Future.successful(NotFound(Json.obj("error" -> "not found")))){ selection =>
+        Future.successful(Ok(Json.toJson(
+          selection.result.groupedDependencies.map(gd => GroupedDependencyIdentifier.fromGroupedDependency(gd)).sortBy(gdi => (gdi.identifiers.map(_.name).mkString(", "), gdi.hashes.sha1, gdi.hashes.md5))
+        )))
+      }
+    }
+  }
+
 
 
   def vulnerableLibraries(selectorOption: Option[String]) = ReadAction.async { implicit req =>
