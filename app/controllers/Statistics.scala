@@ -19,7 +19,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 final case class ScannedRepository(url: String, branch: String)
 
-final case class ScannedProject(name: String, repos: Seq[ScannedRepository], projects: Seq[String], key: String)
+final case class ScannedProject(name: String, repos: Seq[ScannedRepository], teams: Seq[String], key: String)
 
 //noinspection TypeAnnotation
 class Statistics @Inject()(
