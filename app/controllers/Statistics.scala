@@ -5,7 +5,7 @@ import com.google.inject.Inject
 import com.google.inject.name.Named
 import com.ysoft.odc.Confidence.Confidence
 import com.ysoft.odc.statistics.{LibDepStatistics, TagStatistics}
-import com.ysoft.odc.{ArtifactFile, ArtifactItem, Hashes}
+import com.ysoft.odc._
 import controllers.DependencyCheckReportsParser.ResultWithSelection
 import controllers.api.{ApiConfig, ApiController}
 import models.LibraryTag
@@ -27,7 +27,18 @@ final case class GroupedDependencyIdentifier(hashes: Hashes, identifiers: Seq[Id
 object GroupedDependencyIdentifier{
   def fromGroupedDependency(groupedDependency: GroupedDependency): GroupedDependencyIdentifier = GroupedDependencyIdentifier(
     hashes = groupedDependency.hashes,
-    identifiers = groupedDependency.identifiers.toIndexedSeq.sortBy(_.name)
+    identifiers = {
+      val identifiers = groupedDependency.identifiers.toIndexedSeq.sortBy(_.name)
+      def fileNameIdentifiers = groupedDependency.fileNames.toIndexedSeq.sorted.map(filename => Identifier(
+        identifierType = "file",
+        name = filename,
+        confidence = Confidence.Highest,
+        url = ""
+      ))
+
+      if(identifiers.exists(_.confidence >= Confidence.Medium)) identifiers
+      else fileNameIdentifiers ++ identifiers // If we don't know any reliable identifier, add filenames
+    }
   )
 }
 
