@@ -274,6 +274,17 @@ class Statistics @Inject()(
     }
   }
 
+  def dependencyDetails(selectorOption: Option[String], depPrefix: String, depId: Hashes) = ReadAction.async { implicit req =>
+    val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
+    resultsFuture flatMap { allResults =>
+      println(selectorOption)
+      select(allResults, selectorOption).fold(Future.successful(notFound())) { selection =>
+        val dep = selection.result.groupedDependenciesByHashes(depId)
+        Future.successful(Ok(views.html.dependencyDetailsInner(depPrefix = depPrefix, dep = dep, selectorOption = selectorOption)))
+      }
+    }
+  }
+
   def allFiles(selectorOption: Option[String]) = ReadAction.async { implicit req =>
     val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
     resultsFuture flatMap { allResults =>

@@ -62,5 +62,24 @@ function updatePosition(){
     // document.getElementById(…) is used over $('#'+…) in order to reduce attack surface: It does not look like a good idea to pass untrusted input to “omnipotent” `$` function.
     $.scrollTo(document.getElementById(location.hash.substr(1)), {offset: -$('#navbar').height()});
 }
+function lazyLoad(el){
+    var $el = $(el);
+    var url = $el.attr("data-lazyload-url");
+    function setUrl(newUrl){
+      $el.attr("data-lazyload-url", newUrl);
+    }
+    if(url){
+        $el.html("Loading");
+        $el.load(url, function( response, status, xhr ) {
+            if ( status == "error" ) {
+                $el.html("Error when loading data");
+                setUrl(url);
+            }
+        });
+        setUrl(null);
+    }
+}
+
 $(window).bind('hashchange', function(e) { updatePosition(); });
 $(window).bind('load', function(e) { updatePosition(); });
+$(window).bind('show.bs.collapse', function(e){ lazyLoad(e.target); });

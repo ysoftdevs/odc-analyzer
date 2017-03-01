@@ -1,0 +1,16 @@
+@(depPrefix: String, expandByDefault: Boolean, dep: GroupedDependency, selectorOption: Option[String])
+<div id="@depPrefix-details" class="collapse @if(expandByDefault){ in }" data-lazyload-url="@routes.Statistics.dependencyDetails(
+    depPrefix = depPrefix,
+    depId = dep.hashes,
+    selectorOption = selectorOption
+)">
+    @if(expandByDefault){
+        @dependencyDetailsInner(
+            depPrefix = depPrefix,
+            selectorOption = selectorOption,
+            dep = dep
+        )
+    }else{
+        placeholder
+    }
+</div>

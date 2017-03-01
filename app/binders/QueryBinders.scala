@@ -3,6 +3,7 @@ package binders
 import java.net.URLDecoder.decode
 import java.net.URLEncoder.encode
 
+import com.ysoft.odc.Hashes
 import play.api.mvc.{JavascriptLiteral, PathBindable, QueryStringBindable}
 
 object QueryBinders {
@@ -20,6 +21,13 @@ object QueryBinders {
   implicit def bindableMapStringToInt: QueryStringBindable[Map[String, Int]] = {
     QueryStringBindable.bindableString.transform(s => formats.reads(Json.parse(s)).getOrElse(Map()), map => formats.writes(map).toString())
   }
+
+  implicit val hashedBindable = QueryStringBindable.bindableString.transform[Hashes](
+    str => str.split('-') match {
+      case Array(sha1, md5) => Hashes(sha1 = sha1, md5 = md5)
+    },
+    hashes => s"${hashes.sha1}-${hashes.md5}"
+  )
 
   implicit object MapStringIntJavascriptLiteral extends JavascriptLiteral[Map[String, Int]] {
     override def to(value: Map[String, Int]): String = formats.writes(value).toString()
