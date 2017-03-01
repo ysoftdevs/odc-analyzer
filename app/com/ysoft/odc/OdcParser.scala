@@ -2,6 +2,7 @@ package com.ysoft.odc
 
 import com.github.nscala_time.time.Imports._
 import com.ysoft.memory.ObjectPool
+import com.ysoft.odc.Confidence.Confidence
 import controllers.ReportInfo
 import models.{LibraryType, PlainLibraryIdentifier}
 
@@ -86,6 +87,18 @@ final case class GroupedDependency(dependencies: Map[Dependency, Set[ReportInfo]
   def suppressedVulnerabilities: Set[Vulnerability] = dependencies.keySet.flatMap(_.suppressedVulnerabilities)
   def plainLibraryIdentifiers: Set[PlainLibraryIdentifier] = identifiers.flatMap(_.toLibraryIdentifierOption)
   def hasCpe: Boolean = cpeIdentifiers.nonEmpty
+  def identifiersWithFilenames(threshold: Confidence) = {
+    def fileNameIdentifiers = fileNames.toIndexedSeq.sorted.map(filename => Identifier(
+      identifierType = "file",
+      name = filename,
+      confidence = Confidence.Highest,
+      url = ""
+    ))
+    val identifiersSeq =
+      if(identifiers.exists(_.confidence >= threshold)) identifiers
+      else fileNameIdentifiers ++ identifiers // If we don't know any reliable identifier, add filenames
+    identifiersSeq.toIndexedSeq.sortBy(_.name)
+  }
 }
 
 object GroupedDependency{

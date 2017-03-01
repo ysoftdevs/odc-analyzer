@@ -27,18 +27,7 @@ final case class GroupedDependencyIdentifier(hashes: Hashes, identifiers: Seq[Id
 object GroupedDependencyIdentifier{
   def fromGroupedDependency(groupedDependency: GroupedDependency): GroupedDependencyIdentifier = GroupedDependencyIdentifier(
     hashes = groupedDependency.hashes,
-    identifiers = {
-      val identifiers = groupedDependency.identifiers.toIndexedSeq.sortBy(_.name)
-      def fileNameIdentifiers = groupedDependency.fileNames.toIndexedSeq.sorted.map(filename => Identifier(
-        identifierType = "file",
-        name = filename,
-        confidence = Confidence.Highest,
-        url = ""
-      ))
-
-      if(identifiers.exists(_.confidence >= Confidence.Medium)) identifiers
-      else fileNameIdentifiers ++ identifiers // If we don't know any reliable identifier, add filenames
-    }
+    identifiers = groupedDependency.identifiersWithFilenames(threshold = Confidence.Highest)
   )
 }
 
