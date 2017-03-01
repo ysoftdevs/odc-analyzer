@@ -279,8 +279,11 @@ class Statistics @Inject()(
     resultsFuture flatMap { allResults =>
       println(selectorOption)
       select(allResults, selectorOption).fold(Future.successful(notFound())) { selection =>
-        val dep = selection.result.groupedDependenciesByHashes(depId)
-        Future.successful(Ok(views.html.dependencyDetailsInner(depPrefix = depPrefix, dep = dep, selectorOption = selectorOption)))
+        Future.successful(Ok(views.html.dependencyDetailsInner(
+          depPrefix = depPrefix,
+          dep = selection.result.groupedDependenciesByHashes(depId),
+          selectorOption = selectorOption)
+        ).withHeaders("Content-type" -> "text/plain; charset=utf-8"))
       }
     }
   }
