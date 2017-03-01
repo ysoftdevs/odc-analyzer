@@ -69,7 +69,11 @@ function lazyLoad(el){
       $el.attr("data-lazyload-url", newUrl);
     }
     if(url){
-        $el.html("Loading");
+        $el.html($('<div class="progress">')
+          .append(
+            $('<div class="progress-bar progress-bar-striped active" role="progressbar" style="width: 100%;">Loading…</div>')
+          )
+        );
         $el.load(url, function( response, status, xhr ) {
             if ( status == "error" ) {
                 $el.html("Error when loading data");
