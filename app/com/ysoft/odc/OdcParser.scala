@@ -80,6 +80,7 @@ final case class GroupedDependency(dependencies: Map[Dependency, Set[ReportInfo]
   def hashes = dependencies.keys.head.hashes // valid since all deps in a group have the same hashes
   val sha1 = hashes.sha1
   def identifiers: Set[Identifier] = dependencies.keySet.flatMap(_.identifiers)
+  def evidenceCollected: Set[Evidence] = dependencies.keySet.flatMap(_.evidenceCollected)
   def suppressedIdentifiers: Set[Identifier] = dependencies.keySet.flatMap(_.suppressedIdentifiers)
   def mavenIdentifiers = identifiers.filter(_.identifierType == "maven")
   def cpeIdentifiers = identifiers.filter(_.identifierType == "cpe")

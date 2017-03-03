@@ -31,6 +31,18 @@ object GroupedDependencyIdentifier{
   )
 }
 
+final case class GroupedDependencyDetailedIdentifier(hashes: Hashes, identifiers: Seq[Identifier], evidence: Seq[Evidence], fileNames: Seq[String])
+
+object GroupedDependencyDetailedIdentifier{
+  def fromGroupedDependency(groupedDependency: GroupedDependency) = GroupedDependencyDetailedIdentifier(
+    hashes = groupedDependency.hashes,
+    identifiers = groupedDependency.identifiers.toIndexedSeq.sortBy(_.name),
+    evidence = groupedDependency.evidenceCollected.toIndexedSeq.sortBy(e => (e.name, e.value)),
+    fileNames = groupedDependency.fileNames.toIndexedSeq.sortBy(_.toLowerCase)
+  )
+
+}
+
 object Statistics{
 
   // TODO: Move this to a better place
@@ -39,7 +51,9 @@ object Statistics{
   implicit val hashesWrites = Writes[Hashes](h => JsString(s"${h.sha1}-${h.md5}"))
   implicit val confidenceWrites = Writes[Confidence](c => JsString(c.toString))
   implicit val identifierWrites = Json.writes[Identifier]
+  implicit val evidenceWrites = Json.writes[Evidence]
   implicit val groupedDependencyIdentifierWrites = Json.writes[GroupedDependencyIdentifier]
+  implicit val groupedDependencyDetailedIdentifierWrites = Json.writes[GroupedDependencyDetailedIdentifier]
   //implicit val groupedDependencyFormats = Json.format[GroupedDependency]
 
 }
@@ -256,6 +270,16 @@ class Statistics @Inject()(
     }
   }
 
+  def allDependenciesVerbose(selectorOption: Option[String]) = ApiAction(Dependencies).async { implicit req =>
+    val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
+    resultsFuture flatMap { allResults =>
+      select(allResults, selectorOption).fold(Future.successful(NotFound(Json.obj("error" -> "not found")))){ selection =>
+        Future.successful(Ok(Json.toJson(
+          selection.result.groupedDependencies.map(gd => GroupedDependencyDetailedIdentifier.fromGroupedDependency(gd)).sortBy(gdi => (gdi.identifiers.map(_.name).mkString(", "), gdi.fileNames.mkString(", "), gdi.hashes.sha1, gdi.hashes.md5))
+        )))
+      }
+    }
+  }
 
 
   def vulnerableLibraries(selectorOption: Option[String]) = ReadAction.async { implicit req =>
