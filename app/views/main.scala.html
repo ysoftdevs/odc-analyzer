@@ -55,17 +55,22 @@
                     @for((ProjectsWithSelection(filter, projects, teams), link) <- projectsOption){
                         <div id="project-selector">
                             <div class="dropdown">
-                                <button class="btn @if(filter.filters){btn-warning}else{btn-primary} dropdown-toggle" type="button" data-toggle="dropdown">@filter.descriptionHtml
+                                <button class="btn btn-default dropdown-toggle" type="button" data-toggle="dropdown">
+                                    <span class="glyphicon glyphicon-filter" aria-hidden="true"></span>
+                                    @filter.descriptionHtml
                                     <span class="caret"></span>
                                 </button>
                                 <ul class="dropdown-menu">
-                                    <li><a href="@link(None)"><i>all projects</i></a></li>
-                                    <li class="base-project"><a href="#">Teams</a></li>
+                                    <li><a href="@link(None)"><i>(no filter)</i></a></li>
+                                    <li class="divider"></li>
+                                    <li class="dropdown-header">Filter by team</li>
                                     @for(team <- teams.toIndexedSeq.sortBy(_.name.toLowerCase)){
                                         <li><a href="@link(Some("team:"+team.id))" title="team leader: @team.leader">@team.name</a></li>
                                     }
+                                    <li class="divider"></li>
+                                    <li class="dropdown-header">Filter by project</li>
                                     @for(report <- projects.sortedReportsInfo){
-                                        <li@if(report.subprojectNameOption.isEmpty){ class="base-project"}><a href="@link(Some("project:"+report.fullId))">@friendlyProjectName(report)</a></li>
+                                        <li@if(report.subprojectNameOption.nonEmpty){ class="subproject"}><a href="@link(Some("project:"+report.fullId))">@friendlyProjectName(report)</a></li>
                                     }
                                 </ul>
                             </div>

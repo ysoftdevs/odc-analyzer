@@ -32,7 +32,7 @@
     padding-top: 10px;
 }
 #project-selector button{
-    max-width: 200px;
+    max-width: 220px;
     overflow: hidden;
     text-overflow: ellipsis;
 }
@@ -40,8 +40,9 @@
     max-height: 300px;
     overflow: auto;
 }
-#project-selector .base-project a{
-    font-weight: bolder;
+#project-selector .subproject a{
+    margin-left: 5px;
+    font-size: smaller;
 }
 
 h3.library-identification{
