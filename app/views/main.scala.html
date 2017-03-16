@@ -61,7 +61,7 @@
                                 <ul class="dropdown-menu">
                                     <li><a href="@link(None)"><i>all projects</i></a></li>
                                     <li class="base-project"><a href="#">Teams</a></li>
-                                    @for(team <- teams){
+                                    @for(team <- teams.toIndexedSeq.sortBy(_.name.toLowerCase)){
                                         <li><a href="@link(Some("team:"+team.id))" title="team leader: @team.leader">@team.name</a></li>
                                     }
                                     @for(report <- projects.sortedReportsInfo){
