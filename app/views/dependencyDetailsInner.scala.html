@@ -25,6 +25,12 @@
     }
     </div>
 }
+<h4 data-toggle="collapse" data-target="#@depPrefix-license">License</h4>
+<div id="@depPrefix-license">@dep.dependencies.map(_._1.license).toSet.toSeq.sorted match {
+    case Seq("") => {<i>unknown</i>}
+    case Seq(license) => {@license}
+    case licenses => {It seems to have multiple licenses detected. Maybe it is a good idea to recheck it manually. Detected licenses: @licenses.mkString(", ")}
+}</div>
 <h4 data-toggle="collapse" data-target="#@depPrefix-evidence-details">Evidence</h4>
 <table id="@depPrefix-evidence-details" class="collapse table table-bordered table-condensed">
     <tr>
