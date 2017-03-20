@@ -70,7 +70,7 @@ final case class Dependency(
  * @param dependencies
  */
 final case class GroupedDependency(dependencies: Map[Dependency, Set[ReportInfo]]) {
-  def parsedDescriptions: Seq[Seq[Seq[String]]] = descriptions.toSeq.sorted.map(_.split("\n\n").toSeq.map(_.split("\n").toSeq))
+  def parsedDescriptions: Seq[Seq[Seq[String]]] = descriptions.toSeq.sorted.map(_.trim.split("\n\n").filterNot(_=="").toSeq.map(_.split("\n").toSeq))
   def isVulnerable: Boolean = vulnerabilities.nonEmpty
   def maxCvssScore = (Seq(None) ++ vulnerabilities.map(_.cvssScore)).max
   def ysdssScore = maxCvssScore.map(_ * projects.size)
