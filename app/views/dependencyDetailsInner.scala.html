@@ -32,33 +32,36 @@
     case licenses => {It seems to have multiple licenses detected. Maybe it is a good idea to recheck it manually. Detected licenses: @licenses.mkString(", ")}
 }</div>
 <h4 data-toggle="collapse" data-target="#@depPrefix-evidence-details">Evidence</h4>
-<table id="@depPrefix-evidence-details" class="collapse table table-bordered table-condensed">
-    <tr>
-        <th>confidence</th>
-        <th>evidence type</th>
-        <th>name</th>
-        <th>source</th>
-        <th>value</th>
-    </tr>
-    @for(fileName <- dep.fileNames.toIndexedSeq.sorted){
+<div id="@depPrefix-evidence-details" class="collapse">
+    <p>Dependency Check uses so-called <i>evidence</i> for matching of identifiers. When results don't match your expectations, you might find the reason here.</p>
+    <table class="table table-bordered table-condensed">
         <tr>
-            <td></td>
-            <td><i>filename</i></td>
-            <td></td>
-            <td></td>
-            <td>@fileName</td>
+            <th>confidence</th>
+            <th>evidence type</th>
+            <th>name</th>
+            <th>source</th>
+            <th>value</th>
         </tr>
-    }
-    @for(ev <- dep.dependencies.keySet.map(_.evidenceCollected).flatten){
-        <tr>
-            <td>@ev.confidence
-            <td>@ev.evidenceType
-            <td>@ev.name
-            <td>@ev.source
-            <td>@ev.value
-        </tr>
-    }
-</table>
+        @for(fileName <- dep.fileNames.toIndexedSeq.sorted){
+            <tr>
+                <td></td>
+                <td><i>filename</i></td>
+                <td></td>
+                <td></td>
+                <td>@fileName</td>
+            </tr>
+        }
+        @for(ev <- dep.dependencies.keySet.map(_.evidenceCollected).flatten){
+            <tr>
+                <td>@ev.confidence
+                <td>@ev.evidenceType
+                <td>@ev.name
+                <td>@ev.source
+                <td>@ev.value
+            </tr>
+        }
+    </table>
+</div>
 <h4 data-toggle="collapse" data-target="#@depPrefix-projects-details">Affected projects (@dep.projects.size)</h4>
 <ul id="@depPrefix-projects-details" class="collapse in">@for(p <- dep.projects.toIndexedSeq.sorted){<li>@friendlyProjectName(p)</li>}</ul>
 <h4 data-toggle="collapse" data-target="#@depPrefix-vulnerabilities-details">Vulnerabilities (@dep.vulnerabilities.size)</h4>
