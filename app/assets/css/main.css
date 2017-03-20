@@ -85,6 +85,7 @@ h3.library-identification{
     font-size: smaller;
     margin-bottom: 5px;
     width: 10px;
+    white-space: nowrap;
 }
 
 .severity .score{
