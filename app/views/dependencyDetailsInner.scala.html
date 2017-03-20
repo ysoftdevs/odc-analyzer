@@ -1,5 +1,16 @@
 @(depPrefix: String, dep: GroupedDependency, selectorOption: Option[String])
 
+@dep.cpeIdentifiers.toSeq match {
+    case Seq() => {}
+    case cpeIds => {
+        <p>
+            <a href="@routes.Statistics.searchVulnerableSoftware(
+                cpeIds.map(_.name.split(':').take(4).mkString(":")).toSeq, None
+            )" title="Search for known vulnerabilities" class="btn btn-default">Look for vulnerabilities in other versions</a>
+        </p>
+    }
+}
+
 @if(dep.descriptions.size > 1){
     <div class="alert alert-warning">Multiple descriptions for this dependency!</div>
 }

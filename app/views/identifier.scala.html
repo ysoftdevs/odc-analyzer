@@ -1,3 +1,2 @@
 @(identifier: Identifier, addLink: Boolean = true)
-@identifier.confidence.toString.toLowerCase:
-@secureLink(if(addLink) identifier.url else ""){@identifier.name}
+@secureLink(if(addLink) identifier.url else ""){<span class="identifier identifier-@identifier.confidence.toString.toLowerCase" data-confidence="@identifier.confidence.toString.toLowerCase" data-type="@identifier.identifierType">@identifier.name</span>}

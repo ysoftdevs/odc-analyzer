@@ -1,0 +1,29 @@
+@(dep: GroupedDependency, suppressionXmlIdOption: Option[String => String] = None, addLink: Boolean = true, addButtons: Boolean = true)
+@import com.ysoft.odc.Confidence
+@implicitOrdering = @{
+    // This implicit should not be theoretically needed, but missing this used to cause somehow non-deterministic scalac behavior:
+    // The first ….sortBy expression used to pass, while the second one used to fail sometimes. Even though both expressions are essentially the same.
+    // When these expressions are swapped, still the first (after swapping) one passes and the second one fails, no matter which one is the first and
+    // which is the second. So, it looks like some compiler bug related to mutable state.
+    // It also seems to be related to some compiler cache. It is somehow possible to compile it by incremental compilation and some code changes, but
+    // clean build deterministically fails at the second expression.
+    // So, making the implicit explicit is a workaround for this issue.
+    Ordering.Tuple4[Confidence.Value, String, String, String]
+}
+<ul>
+@if(!dep.identifiers.exists(_.confidence >= Confidence.High)){
+    <li><span class="identifier identifier-file" data-type="file" data-confidence="highest">@dep.fileNames.toSeq.sorted.mkString(", ")@if(addButtons){<span class="btn-xs library-identification-badge-hack">&nbsp;</span>}</span></li>
+}
+@for(id <- dep.identifiers.toSeq.sortBy(i => (i.confidence, i.identifierType, i.name, i.url)).reverse){
+    <li>
+        @identifier(id, addLink)
+        @for(cpe <- id.toCpeIdentifierOption; suppressionXmlId <- suppressionXmlIdOption; if addButtons){
+            <button class="btn btn-default btn-xs" data-toggle="collapse" data-target="#@suppressionXmlId(cpe)">×</button>
+        }
+        @if(addButtons && suppressionXmlIdOption.isDefined){<span class="btn-xs library-identification-badge-hack">&nbsp;</span>}
+    </li>
+}
+@for(id <- dep.suppressedIdentifiers.toSeq.sortBy(i => (i.confidence, i.identifierType, i.name, i.url)).reverse){
+    <li><del>@identifier(id, addLink)</del></li>
+}
+</ul>

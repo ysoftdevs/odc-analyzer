@@ -75,14 +75,23 @@ h3.library-identification{
     color: white;
     font-weight: bold;
 }
+.dependencies-table .identifiers ul, .dependencies-table .identifiers ul li{
+    margin-left: 0;
+    padding-left: 0;
+    list-style-type: none;
+}
 
 .severity{
     font-size: smaller;
     margin-bottom: 5px;
+    width: 10px;
 }
 
 .severity .score{
     font-weight: bolder;
+}
+.severity .computation-details{
+    display: block;
 }
 
 .explained{
@@ -101,7 +110,7 @@ h3.library-identification{
     height: 1.5em;
     width: 1.5em;
     margin-left: 0.5em;
-    font-size: 50%;
+    font-size: 70%;
 }
 .explained:hover{
     border-bottom-color: blue;
@@ -155,4 +164,36 @@ h3.library-identification{
 }
 .nav > li.collapse.in {
     display: list-item;
+}
+
+.dependencies-table .vulns{
+    text-align: right;
+}
+.dependencies-table .actions{
+    vertical-align: bottom;
+    width: 10px;
+}
+.dependencies-table > tbody > tr:nth-of-type(4n+1), .dependencies-table > tbody > tr:nth-of-type(4n+2) {
+    background-color: #f9f9f9;
+}
+.dependencies-table > tbody > tr.details > td {
+    border-top-style: none;
+}
+.dependencies-table .severity .explained:hover {
+    color:blue;
+}
+.dependencies-table .severity .explained:after {
+    content: "";
+    display: none;
+}
+.dependencies-table .severity .tooltip-inner {
+    white-space:nowrap;
+    max-width:none;
+}
+.dependencies-table .identifiers .tooltip-inner {
+    max-width: 350px;
+    width: 350px;
+}
+.dependencies-table .identifiers .explained{
+    border-bottom: none;
 }

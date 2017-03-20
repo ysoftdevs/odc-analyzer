@@ -3,32 +3,74 @@
     cpe.getBytes("utf-8").mkString("-")
 }
 
-@for(dep <- list; depPrefix = s"$idPrefix-${dep.sha1}"){
-    <h3 class="library-identification" id="@depPrefix-head" data-toggle="collapse" data-target="#@depPrefix-details">
-        @libraryIdentification(dep, Some(cpe => s"$idPrefix-${dep.sha1}-suppression-cpe-${cpeHtmlId(cpe)}"), addLink = false, addButtons = addButtons)
-        @for(s <- dep.maxCvssScore) {
-            <span class="severity">
-                (<span title="highest vulnerability score" class="explained">@s</span>
-                × <span class="explained" title="affected project count">@dep.projects.size</span>
-                = <span class="explained score" title="total score">@dep.ysdssScore</span>)
-                (vulns:&nbsp;@dep.vulnerabilities.size)
-            </span>
-        }
-        @dep.cpeIdentifiers.toSeq match {
-            case Seq() => {}
-            case cpeIds => {
-                <a href="@routes.Statistics.searchVulnerableSoftware(cpeIds.map(_.name.split(':').take(4).mkString(":")).toSeq, None)" title="Search for known vulnerabilities"><span class="glyphicon glyphicon-flash"></span></a>
-            }
-        }
-    </h3>
-    @for(identifier <- dep.identifiers; cpe <- identifier.toCpeIdentifierOption ) {
-        <div id="@(s"$idPrefix-${dep.sha1}-suppression-cpe-${cpeHtmlId(cpe)}")" class="collapse">@SuppressionXml.forCpe(dep, cpe)</div>
+<table class="table table-condensed dependencies-table">
+    <thead>
+        <tr>
+            <th>Severity</th>
+            <th>Identifiers</th>
+            <th class="vulns">Vulns</th>
+            <th class="actions"></th>
+        </tr>
+    </thead>
+    @for(dep <- list; depPrefix = s"$idPrefix-${dep.sha1}"){
+        <tr>
+            <td class="severity">
+                @for(s <- dep.maxCvssScore) {
+                    <span class="score">@dep.ysdssScore.map("%.2f".format(_))</span>
+                    <span class="computation-details">
+                        = <span class="score-vulnerability">@s</span> × <span class="score-projects">@dep.projects.size</span>
+                    </span>
+                }
+            </td>
+            <td class="identifiers">
+                @libraryIdentificationList(dep, Some(cpe => s"$idPrefix-${dep.sha1}-suppression-cpe-${cpeHtmlId(cpe)}"), addLink = false, addButtons = addButtons)
+            </td>
+            <td class="vulns">@for(s <- dep.maxCvssScore) {@dep.vulnerabilities.size}</td>
+            <td class="actions">
+                <button data-toggle="collapse" data-target="#@depPrefix-details" class="btn btn-info"><span class="glyphicon glyphicon-chevron-down"></span></button>
+            </td>
+        </tr>
+        <tr data-wrapper="<td colspan='4' xxxstyle='width: 100%;'></td>" id="@depPrefix-details" class="details collapse" data-lazyload-url="@routes.Statistics.dependencyDetails(
+            depPrefix = depPrefix,
+            depId = dep.hashes,
+            selectorOption = selectorOption
+        )"></tr>
     }
-    @dependencyDetails(
-        depPrefix = depPrefix,
-        expandByDefault = expandByDefault,
-        selectorOption = selectorOption,
-        dep = dep
-    )
-
-}
+</table>
+<script type="text/javascript">
+    $(function () {
+        $(".severity .score")
+                .attr("title", "total score = score of highest-rated vulnerability × number of affected projects")
+                .addClass("explained")
+                .tooltip({ placement: "top" });
+        $(".severity .score-vulnerability")
+                .attr("title", "score of highest-rated vulnerability")
+                .addClass("explained")
+                .tooltip({ placement: "bottom" });
+        $(".severity .score-projects")
+                .attr("title", "number of affected projects")
+                .addClass("explained")
+                .tooltip({ placement: "bottom" });
+        var identifierTypes = {
+            "cpe": "Common Platform Enumeration (CPE)",
+            "maven": "Maven",
+            "file": "File name"
+        };
+        var identifierTypesDetails = {
+            "cpe": "This identifier is used in National Vulnerability Database, so it is important for proper matching of vulnerabilities. A mismatched CPE identifier can directly cause wrongly matched vulnerabilities.",
+            "file": "This identifier is shown only if there is no identifier with high or highest confidence."
+        };
+        function escapeHtml(s) {
+            return document.createElement("div").appendChild(document.createTextNode(s)).parentNode.innerHTML;
+        }
+        $(".identifiers .identifier").each(function(i, obj){
+            var $obj = $(obj);
+            var identifierType = $obj.attr("data-type");
+            var confidence = $obj.attr("data-confidence");
+            var identifierTypeFriendlyName = identifierTypes[identifierType] || identifierType;
+            var identifiedDetails = identifierTypesDetails[identifierType];
+            var title = "<b>"+escapeHtml(identifierTypeFriendlyName)+ "</b> identifier matched with <b>"+escapeHtml(confidence)+"</b> confidence. "+(identifiedDetails ? ("<hr>"+identifiedDetails) :"");
+            $obj.addClass("explained").attr("title", title).tooltip({placement: "right", html: true});
+        });
+    });
+</script>

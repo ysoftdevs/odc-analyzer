@@ -64,19 +64,24 @@ function updatePosition(){
 }
 function lazyLoad(el){
     var $el = $(el);
+    var wrapExpr = $el.attr('data-wrapper');
+    var targetEl = wrapExpr ? $(wrapExpr) : $el;
     var url = $el.attr("data-lazyload-url");
     function setUrl(newUrl){
-      $el.attr("data-lazyload-url", newUrl);
+        $el.attr("data-lazyload-url", newUrl);
     }
     if(url){
-        $el.html($('<div class="progress">')
+        if($el != targetEl){
+            $el.html(targetEl);
+        }
+        targetEl.html($('<div class="progress">')
           .append(
             $('<div class="progress-bar progress-bar-striped active" role="progressbar" style="width: 100%;">Loading…</div>')
           )
         );
-        $el.load(url, function( response, status, xhr ) {
+        targetEl.load(url, function( response, status, xhr ) {
             if ( status == "error" ) {
-                $el.html("Error when loading data");
+                targetEl.html("Error when loading data");
                 setUrl(url);
             }
         });
