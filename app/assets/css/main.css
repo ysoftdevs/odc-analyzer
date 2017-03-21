@@ -88,9 +88,6 @@ h3.library-identification{
     white-space: nowrap;
 }
 
-.severity .score{
-    font-weight: bolder;
-}
 .severity .computation-details{
     display: block;
 }
@@ -191,6 +188,14 @@ h3.library-identification{
     white-space:nowrap;
     max-width:none;
 }
+.dependencies-table .severity .score{
+    font-weight: bolder;
+    font-size: larger;
+    color: red;
+}
+.dependencies-table .severity .score:hover{
+    color: rgb(192, 0, 0);
+}
 .dependencies-table .identifiers .tooltip-inner {
     max-width: 350px;
     width: 350px;
@@ -204,4 +209,7 @@ h3.library-identification{
 }
 .expandable.collapsed:before{
     content: "\e080";
+}
+.expandable.expandable-right.collapsed:before{
+    content: "\e079";
 }

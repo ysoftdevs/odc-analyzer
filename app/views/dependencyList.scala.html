@@ -27,7 +27,7 @@
             </td>
             <td class="vulns">@for(s <- dep.maxCvssScore) {@dep.vulnerabilities.size}</td>
             <td class="actions">
-                <button data-toggle="collapse" data-target="#@depPrefix-details" class="btn btn-info"><span class="glyphicon glyphicon-chevron-down"></span></button>
+                <button data-toggle="collapse" data-target="#@depPrefix-details" class="btn btn-info collapsed expandable expandable-right"></span></button>
             </td>
         </tr>
         <tr data-wrapper="<td colspan='4' xxxstyle='width: 100%;'></td>" id="@depPrefix-details" class="details collapse" data-lazyload-url="@routes.Statistics.dependencyDetails(
