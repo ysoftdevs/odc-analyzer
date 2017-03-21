@@ -20,7 +20,7 @@
         <p>
         @for(line <- descriptionParagraphLines) {
             @line<br>
-            }
+        }
         </p>
     }
     </div>
@@ -65,14 +65,13 @@
 <h4 class="expandable" data-toggle="collapse" data-target="#@depPrefix-projects-details">Affected projects (@dep.projects.size)</h4>
 <ul id="@depPrefix-projects-details" class="collapse in">@for(p <- dep.projects.toIndexedSeq.sorted){<li>@friendlyProjectName(p)</li>}</ul>
 <h4 class="expandable" data-toggle="collapse" data-target="#@depPrefix-vulnerabilities-details">Vulnerabilities (@dep.vulnerabilities.size)</h4>
-<ul id="@depPrefix-vulnerabilities-details" class="collapse in">
+<ul id="@depPrefix-vulnerabilities-details" class="collapse in vulnerabilities-details">
     @for(vuln <- dep.vulnerabilities.toSeq.sortBy(_.cvssScore.map(-_)); vulnPrefix = s"$depPrefix-vulnerabilities-details-${vuln.name}"){
         <li>
-            <h5 data-toggle="collapse" data-target="#@vulnPrefix-details">@vuln.name <a href="@routes.Statistics.vulnerability(vuln.name, selectorOption)"><span class="glyphicon glyphicon-log-out"></span></a></h5>
-            <div id="@vulnPrefix-details" class="collapse">
-                @vulnerability("h6", depPrefix, vuln)
-            <h6 data-toggle="collapse" data-target="#@(s"$depPrefix-suppression-cve-${vuln.name}")">CVE suppression</h6>
-            <div id="@(s"$depPrefix-suppression-cve-${vuln.name}")" class="collapse">@SuppressionXml.forVuln(dep, vuln)</div>
+            <h5 data-toggle="collapse" class="expandable collapsed" data-target="#@vulnPrefix-details">@vuln.name <a href="@routes.Statistics.vulnerability(vuln.name, selectorOption)" target="_blank" onclick="event.stopPropagation();"><span class="glyphicon glyphicon-new-window"></span></a></h5>
+            <div id="@vulnPrefix-details" class="collapse vulnerability-expandable">
+                @vulnerability("h6", depPrefix+"-"+vuln.name, vuln)
+                <p><a class="btn btn-primary more" target="_blank" href="@routes.Statistics.vulnerability(vuln.name, selectorOption)">Full details about this vulnerability</a></p>
             </div>
         </li>
     }

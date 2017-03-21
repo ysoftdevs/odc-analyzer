@@ -203,6 +203,13 @@ h3.library-identification{
 .dependencies-table .identifiers .explained{
     border-bottom: none;
 }
+.dependencies-table .vulnerabilities-details > li{
+    display: block;
+    list-style-type: none;
+    padding-left: 0;
+    margin-left: 0;
+}
+
 .expandable:before{
     font-family: 'Glyphicons Halflings';
     content: "\e114";
@@ -212,4 +219,19 @@ h3.library-identification{
 }
 .expandable.expandable-right.collapsed:before{
     content: "\e079";
+}
+.cvss .tooltip-inner table {
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: 10px;
+}
+.cvss .tooltip-inner {
+    max-width: 250px;
+    width: 250px;
+}
+.vulnerability-expandable{
+    margin-left: 15px;
+}
+.vulnerability-expandable .more{
+    margin: 10px;
 }

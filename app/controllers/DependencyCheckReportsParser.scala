@@ -97,7 +97,7 @@ final case class TeamFilter(team: Team) extends Filter{
 object NoFilter extends Filter{
   override def filters: Boolean = false
   override val descriptionHtml: Html = views.html.filters.all()
-  override def descriptionText: String = "no filter selected"
+  override def descriptionText: String = "all projects"
   override def subReports(r: Result): Option[Result] = Some(r)
   override def selector: Option[String] = None
 }
