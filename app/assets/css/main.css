@@ -198,3 +198,10 @@ h3.library-identification{
 .dependencies-table .identifiers .explained{
     border-bottom: none;
 }
+.expandable:before{
+    font-family: 'Glyphicons Halflings';
+    content: "\e114";
+}
+.expandable.collapsed:before{
+    content: "\e080";
+}

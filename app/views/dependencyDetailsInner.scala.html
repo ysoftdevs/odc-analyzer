@@ -25,13 +25,13 @@
     }
     </div>
 }
-<h4 data-toggle="collapse" data-target="#@depPrefix-license">License</h4>
-<div id="@depPrefix-license">@dep.dependencies.map(_._1.license).toSet.toSeq.sorted match {
+<h4 class="expandable" data-toggle="collapse" data-target="#@depPrefix-license">License</h4>
+<div class="collapse in" id="@depPrefix-license">@dep.dependencies.map(_._1.license).toSet.toSeq.sorted match {
     case Seq("") => {<i>unknown</i>}
     case Seq(license) => {@license}
     case licenses => {It seems to have multiple licenses detected. Maybe it is a good idea to recheck it manually. Detected licenses: @licenses.mkString(", ")}
 }</div>
-<h4 data-toggle="collapse" data-target="#@depPrefix-evidence-details">Evidence</h4>
+<h4 class="expandable collapsed" data-toggle="collapse" data-target="#@depPrefix-evidence-details">Evidence</h4>
 <div id="@depPrefix-evidence-details" class="collapse">
     <p>Dependency Check uses so-called <i>evidence</i> for matching of identifiers. When results don't match your expectations, you might find the reason here.</p>
     <table class="table table-bordered table-condensed">
@@ -62,9 +62,9 @@
         }
     </table>
 </div>
-<h4 data-toggle="collapse" data-target="#@depPrefix-projects-details">Affected projects (@dep.projects.size)</h4>
+<h4 class="expandable" data-toggle="collapse" data-target="#@depPrefix-projects-details">Affected projects (@dep.projects.size)</h4>
 <ul id="@depPrefix-projects-details" class="collapse in">@for(p <- dep.projects.toIndexedSeq.sorted){<li>@friendlyProjectName(p)</li>}</ul>
-<h4 data-toggle="collapse" data-target="#@depPrefix-vulnerabilities-details">Vulnerabilities (@dep.vulnerabilities.size)</h4>
+<h4 class="expandable" data-toggle="collapse" data-target="#@depPrefix-vulnerabilities-details">Vulnerabilities (@dep.vulnerabilities.size)</h4>
 <ul id="@depPrefix-vulnerabilities-details" class="collapse in">
     @for(vuln <- dep.vulnerabilities.toSeq.sortBy(_.cvssScore.map(-_)); vulnPrefix = s"$depPrefix-vulnerabilities-details-${vuln.name}"){
         <li>
