@@ -212,14 +212,12 @@ h3.library-identification{
 
 .expandable:before{
     font-family: 'Glyphicons Halflings';
-    content: "\e114";
+    content: "\e113";
 }
 .expandable.collapsed:before{
-    content: "\e080";
+    content: "\e114";
 }
-.expandable.expandable-right.collapsed:before{
-    content: "\e079";
-}
+.expandable.expandable-right.collapsed:before{}
 .cvss .tooltip-inner table {
     margin-left: auto;
     margin-right: auto;
