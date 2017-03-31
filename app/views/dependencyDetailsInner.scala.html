@@ -68,7 +68,11 @@
 <ul id="@depPrefix-vulnerabilities-details" class="collapse in vulnerabilities-details">
     @for(vuln <- dep.vulnerabilities.toSeq.sortBy(_.cvssScore.map(-_)); vulnPrefix = s"$depPrefix-vulnerabilities-details-${vuln.name}"){
         <li>
-            <h5 data-toggle="collapse" class="expandable collapsed" data-target="#@vulnPrefix-details">@vuln.name <a href="@routes.Statistics.vulnerability(vuln.name, selectorOption)" target="_blank" onclick="event.stopPropagation();"><span class="glyphicon glyphicon-new-window"></span></a></h5>
+            <h5 data-toggle="collapse" class="expandable collapsed" data-target="#@vulnPrefix-details">
+                @vuln.name
+                <a href="@routes.Statistics.vulnerability(vuln.name, selectorOption)" target="_blank" onclick="event.stopPropagation();"><span class="glyphicon glyphicon-new-window"></span></a>
+                @if(vuln.likelyMatchesOnlyWithoutVersion(dep.identifiers)){<span class="warning-expandable" title="Heuristics suspect false positive. Double check <b>what version</b> does this vulnerability apply to, please. It seems that the vulnerability database does not provide enough information to check it automatically." onmouseover="$(this).tooltip({placement: 'right', html:true}).tooltip('show');"></span>}
+            </h5>
             <div id="@vulnPrefix-details" class="collapse vulnerability-expandable">
                 @vulnerability("h6", depPrefix+"-"+vuln.name, vuln)
                 <p><a class="btn btn-primary more" target="_blank" href="@routes.Statistics.vulnerability(vuln.name, selectorOption)">Full details about this vulnerability</a></p>

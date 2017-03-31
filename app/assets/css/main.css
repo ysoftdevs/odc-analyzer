@@ -235,3 +235,9 @@ h3.library-identification{
 .vulnerability-expandable .more{
     margin: 10px;
 }
+
+.warning-expandable:before{
+    padding-left: 1em;
+    font-family: 'Glyphicons Halflings';
+    content: "\e209";
+}

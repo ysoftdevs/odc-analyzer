@@ -121,7 +121,10 @@ object Confidence extends Enumeration {
 
 final case class Reference(source: String, url: String, name: String)
 
-final case class VulnerableSoftware(allPreviousVersion: Boolean, name: String)
+final case class VulnerableSoftware(allPreviousVersion: Boolean, name: String){
+  def containsVersion = name.count(_==':') >= 4
+  def isVersionless = !containsVersion
+}
 
 final case class CvssRating(score: Option[Double], authenticationr: Option[String], availabilityImpact: Option[String], accessVector: Option[String], integrityImpact: Option[String], accessComplexity: Option[String], confidentialImpact: Option[String])
 
@@ -140,9 +143,24 @@ object CWE{
   def forIdentifierWithDescription(name: String) = cwePool(new CWE(name))
 }
 
+final class RichBoolean(val value: Boolean) extends AnyVal{
+  @inline def ==> (right: => Boolean): Boolean = !value || right
+}
+object RichBoolean{
+  @inline implicit def toRichBoolean(value: Boolean) = new RichBoolean(value)
+}
+
 final case class Vulnerability(name: String, cweOption: Option[CWE], cvss: CvssRating, description: String, vulnerableSoftware: Seq[VulnerableSoftware], references: Seq[Reference]){
+  import RichBoolean.toRichBoolean
   def cvssScore = cvss.score
   def ysvssScore(affectedDeps: Set[GroupedDependency]) = cvssScore.map(_ * affectedDeps.flatMap(_.projects).toSet.size)
+  def likelyMatchesOnlyWithoutVersion(dependencyIdentifiers: Set[Identifier]) = dependencyIdentifiers.forall { id =>
+    // Rather a quick hack. Maybe it would be better to do this check in ODC.
+    val versionlessCpeIdentifierOption = id.toCpeIdentifierOption.map(_.split(':').take(4).mkString(":"))
+    versionlessCpeIdentifierOption.fold(true){ versionlessCpeIdentifier =>
+      vulnerableSoftware.forall(vs => vs.name.startsWith(versionlessCpeIdentifier) ==> vs.isVersionless)
+    }
+  }
 }
 
 final case class Identifier(name: String, confidence: Confidence.Confidence, url: String, identifierType: String) {
