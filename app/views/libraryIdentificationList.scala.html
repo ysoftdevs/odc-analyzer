@@ -10,11 +10,15 @@
     // So, making the implicit explicit is a workaround for this issue.
     Ordering.Tuple4[Confidence.Value, String, String, String]
 }
+@cleanIdentifiers(identifiers: Set[Identifier]) = @{
+    if(addLink) identifiers
+    else identifiers.map(_.copy(url = ""))  // Quick workaround for multiplicities caused by different URL
+}
 <ul>
 @if(!dep.identifiers.exists(_.confidence >= Confidence.High)){
     <li><span class="identifier identifier-file" data-type="file" data-confidence="highest">@dep.fileNames.toSeq.sorted.mkString(", ")@if(addButtons){<span class="btn-xs library-identification-badge-hack">&nbsp;</span>}</span></li>
 }
-@for(id <- dep.identifiers.toSeq.sortBy(i => (i.confidence, i.identifierType, i.name, i.url)).reverse){
+@for(id <- cleanIdentifiers(dep.identifiers).toSeq.sortBy(i => (i.confidence, i.identifierType, i.name, i.url)).reverse){
     <li>
         @identifier(id, addLink)
         @for(cpe <- id.toCpeIdentifierOption; suppressionXmlId <- suppressionXmlIdOption; if addButtons){
@@ -23,7 +27,7 @@
         @if(addButtons && suppressionXmlIdOption.isDefined){<span class="btn-xs library-identification-badge-hack">&nbsp;</span>}
     </li>
 }
-@for(id <- dep.suppressedIdentifiers.toSeq.sortBy(i => (i.confidence, i.identifierType, i.name, i.url)).reverse){
+@for(id <- cleanIdentifiers(dep.suppressedIdentifiers).toSeq.sortBy(i => (i.confidence, i.identifierType, i.name, i.url)).reverse){
     <li><del>@identifier(id, addLink)</del></li>
 }
 </ul>
