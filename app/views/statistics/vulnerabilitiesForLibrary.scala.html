@@ -45,11 +45,16 @@
                 <span id="different-version-warning" class="hidden">Note that you are viewing results for version <strong>@version</strong>!</span>
             }
         </label>
-        <ul>
+        <div class="well">Include all trailing zeros, please. For example, if version number is 3.2.0, <b>do not shorten</b> it to 3.2.</div>
+        <h2 class="expandable collapsed" data-toggle="collapse" data-target="#identifiers-detail">Identifiers</h2>
+        <div id="identifiers-detail" class="collapse">
+            <p>If you think you are getting irrelevant vulnerabilities, you might want to review what identifiers to match.</p>
+            <ul>
             @for(cpe <- cpes){
                 <li><label><input type="checkbox" name="versionlessCpes" value="@cpe" checked> @cpe</label></li>
             }
-        </ul>
+            </ul>
+        </div>
         <button type="submit" class="btn btn-default" id="submit-btn">Check</button>
     }
     @if(isDbOld){
@@ -61,7 +66,7 @@
         @if(vulns.isEmpty){
             <div class="alert alert-success">No known vulnerabilities for version <strong class="checked-version">@version</strong>.</div>
         }else{
-            <div class="alert alert-warning">There @if(vulns.size == 1){is one known vulnerability}else{are some known vulnerabilities} for version <strong class="checked-version">@version</strong>. Consider @if(vulns.size==1){its}else{their} impact before using the library, please.</div>
+            <div class="alert alert-warning">There @if(vulns.size == 1){is one known vulnerability}else{are some known vulnerabilities} for version <strong class="checked-version">@version</strong>. Consider @if(vulns.size==1){its}else{their} impact and relevancy before using the library or try a newer version (if available), please.</div>
             @for(vuln <- vulns.toIndexedSeq.sortBy(v => (v.cvssScore.map(-_), v.name))){
                 <h2>@vuln.name</h2>
                 @vulnerability("h3", s"vulnerability-${vuln.name}-details", vuln)
