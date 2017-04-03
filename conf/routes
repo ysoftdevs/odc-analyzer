@@ -31,9 +31,9 @@ GET         /stats/libraries/all              controllers.Statistics.allLibrarie
 GET         /stats/libraries/files            controllers.Statistics.allFiles(selector: Option[String])
 GET         /stats/libraries/gavs             controllers.Statistics.allGavs(selector: Option[String])
 
-GET         /notifications                    controllers.Notifications.listProjects()
-POST        /notifications/watch              controllers.Notifications.watch(project: String)
-POST        /notifications/unwatch            controllers.Notifications.unwatch(project: String)
+GET         /notifications                    controllers.Notifications.listProjects(filter: Option[String])
+POST        /notifications/watch              controllers.Notifications.watch(project: String, filter: Option[String])
+POST        /notifications/unwatch            controllers.Notifications.unwatch(project: String, filter: Option[String])
 GET         /notifications/cron/:key          controllers.Notifications.cron(key: String, purgeCache: Boolean ?= true)
 
 GET         /libraries/vulnerabilities        controllers.Statistics.searchVulnerableSoftware(versionlessCpes: Seq[String], versionOption: Option[String])

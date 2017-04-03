@@ -19,6 +19,7 @@ sealed trait Filter{
   def filters: Boolean
   def descriptionHtml: Html
   def descriptionText: String
+  def filterProjectsWithReports(projectsWithReports: ProjectsWithReports): Option[ProjectsWithReports] = ???
 }
 final case class ProjectFilter(project: ReportInfo) extends Filter{
   override def filters: Boolean = true
@@ -100,6 +101,7 @@ object NoFilter extends Filter{
   override def descriptionText: String = "all projects"
   override def subReports(r: Result): Option[Result] = Some(r)
   override def selector: Option[String] = None
+  override def filterProjectsWithReports(projectsWithReports: ProjectsWithReports): Option[ProjectsWithReports] = Some(projectsWithReports)
 }
 private final case class BadFilter(pattern: String) extends Filter{
   override def filters: Boolean = true
@@ -107,6 +109,7 @@ private final case class BadFilter(pattern: String) extends Filter{
   override def descriptionHtml: Html = Html("<b>bad filter</b>")
   override def descriptionText: String = "bad filter"
   override def selector: Option[String] = Some(pattern)
+  override def filterProjectsWithReports(projectsWithReports: ProjectsWithReports): Option[ProjectsWithReports] = None
 }
 
 object DependencyCheckReportsParser{

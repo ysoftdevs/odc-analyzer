@@ -1,5 +1,5 @@
 @import helper._
-@(projects: Seq[ReportInfo], watchedProjects: Set[String], failedReports: Set[String])(implicit req: DefaultRequest)
+@(projects: Seq[ReportInfo], watchedProjects: Set[String], failedReports: Set[String], filter: Option[String])(implicit req: DefaultRequest)
 @button(action: Call)(label: String) = {
     @form(action, 'style -> "display: inline-block"){
         @CSRF.formField
@@ -54,9 +54,9 @@
                 <button disabled class="btn btn-link">unwatch</button>
             }else{
                 @if(isWatchedDirectly){
-                    @button(routes.Notifications.unwatch(project.fullId))("unwatch")
+                    @button(routes.Notifications.unwatch(project.fullId, filter))("unwatch")
                 }else{
-                    @button(routes.Notifications.watch(project.fullId))("watch")
+                    @button(routes.Notifications.watch(project.fullId, filter))("watch")
                 }
             }
             @children

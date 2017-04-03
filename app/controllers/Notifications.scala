@@ -36,7 +36,7 @@ class Notifications @Inject()(
 
   import secureRequestConversion._
 
-  def listProjects() = SecuredAction.async { implicit req =>
+  def listProjects(filter: Option[String]) = SecuredAction.async { implicit req =>
     val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
     val myWatchesFuture = notificationService.watchedProjectsByUser(req.identity.loginInfo).map(_.map(_.project).toSet)
     for{
@@ -44,7 +44,8 @@ class Notifications @Inject()(
       myWatches <- myWatchesFuture
     } yield {
       val projects = dependencyCheckReportsParser.parseReports(successfulReports, failedReports).projectsReportInfo.sortedReportsInfo
-      Ok(views.html.notifications.index(projects, myWatches, failedReports.keySet))
+      //val projects = dependencyCheckReportsParser.parseReports(successfulReports, failedReports).selection(filter).get.projectsWithSelection.projectsWithReportsSubset.sortedReportsInfo
+      Ok(views.html.notifications.index(projects, myWatches, failedReports.keySet, filter))
     }
   }
 
@@ -196,15 +197,15 @@ class Notifications @Inject()(
     }
   }
 
-  // Redirection to a specific position does not look intuituve now, so it has been disabled for now.
-  private def redirectToProject(project: String)(implicit th: DefaultRequest) = Redirect(routes.Notifications.listProjects()/*.withFragment("project-" + URLEncoder.encode(project, "utf-8")).absoluteURL()*/)
+  // Redirection to a specific position does not look intuitive now, so it has been disabled for now.
+  private def redirectToProject(project: String, filter: Option[String])(implicit th: DefaultRequest) = Redirect(routes.Notifications.listProjects(filter)/*.withFragment("project-" + URLEncoder.encode(project, "utf-8")).absoluteURL()*/)
 
-  def watch(project: String) = SecuredAction.async{ implicit req =>
-    for( _ <-notificationService.subscribe(req.identity.loginInfo, project) ) yield redirectToProject(project)
+  def watch(project: String, filter: Option[String]) = SecuredAction.async{ implicit req =>
+    for( _ <-notificationService.subscribe(req.identity.loginInfo, project) ) yield redirectToProject(project, filter)
   }
 
-  def unwatch(project: String) = SecuredAction.async{ implicit req =>
-    for( _ <-notificationService.unsubscribe(req.identity.loginInfo, project) ) yield redirectToProject(project)
+  def unwatch(project: String, filter: Option[String]) = SecuredAction.async{ implicit req =>
+    for( _ <-notificationService.unsubscribe(req.identity.loginInfo, project) ) yield redirectToProject(project, filter)
   }
 
 }

@@ -11,4 +11,5 @@ final case class ProjectsWithSelection(filter: Filter, projectsWithReports: Proj
   def isProjectSpecified: Boolean = filter.filters
   def selectorString = filter.selector
   def projectNameText: String = filter.descriptionText
+  def projectsWithReportsSubset: Option[ProjectsWithReports] = filter.filterProjectsWithReports(projectsWithReports)
 }
