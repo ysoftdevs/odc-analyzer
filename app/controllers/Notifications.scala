@@ -61,7 +61,10 @@ class Notifications @Inject()(
   ) = {
     val vulnerabilitiesByName = lds.vulnerabilitiesToDependencies.map{case (v, deps) => (v.name, (v, deps))}
     for{
-      tickets <- ep.loadUnfinishedTickets().map(_.map{case rec @ (id, ticket) => ticket.vulnerabilityName->rec}.toMap)
+      // TODO: Prevent loading all tickets
+      allTickets <- ep.loadAllTickets().map(_.map{case rec @ (id, ticket) => ticket.vulnerabilityName->rec}.toMap)
+      tickets = allTickets.filter(_._2._2.done == false)
+      //tickets <- ep.loadUnfinishedTickets().map(_.map{case rec @ (id, ticket) => ticket.vulnerabilityName->rec}.toMap)
       // Check existing tickets
       existingTicketsIds = tickets.values.map(_._1).toSet
       ticketsById = tickets.values.toMap
@@ -86,7 +89,7 @@ class Notifications @Inject()(
         }
       }
       // Check new tickets
-      missingTickets = vulnerabilitiesByName.keySet -- tickets.keySet
+      missingTickets = vulnerabilitiesByName.keySet -- allTickets.keySet
       newTicketIds <- Future.traverse(filterMissingTickets(missingTickets)){vulnerabilityName =>
         val (vulnerability, dependencies) = vulnerabilitiesByName(vulnerabilityName)
         reportVulnerability(vulnerability, dependencies).flatMap{ ticket =>
