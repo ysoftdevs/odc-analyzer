@@ -16,9 +16,9 @@
         <tr>
             <td class="severity">
                 @for(s <- dep.maxCvssScore) {
-                    <span class="score">@dep.ysdssScore.map("%.2f".format(_))</span>
+                    <span class="score-vulnerability">@s</span>
                     <span class="computation-details">
-                        = <span class="score-vulnerability">@s</span> × <span class="score-projects">@dep.projects.size</span>
+                        <span class="score-projects">affects @dep.projects.size @if(dep.projects.size>1){projects}else{project}</span>
                     </span>
                 }
             </td>
@@ -39,18 +39,10 @@
 </table>
 <script type="text/javascript">
     $(function () {
-        $(".severity .score")
-                .attr("title", "total score = score of highest-rated vulnerability × number of affected projects")
-                .addClass("explained")
-                .tooltip({ placement: "top" });
         $(".severity .score-vulnerability")
                 .attr("title", "score of highest-rated vulnerability")
                 .addClass("explained")
-                .tooltip({ placement: "bottom" });
-        $(".severity .score-projects")
-                .attr("title", "number of affected projects")
-                .addClass("explained")
-                .tooltip({ placement: "bottom" });
+                .tooltip({ placement: "top" });
         var identifierTypes = {
             "cpe": "Common Platform Enumeration (CPE)",
             "maven": "Maven",

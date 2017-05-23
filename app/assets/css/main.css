@@ -188,12 +188,12 @@ h3.library-identification{
     white-space:nowrap;
     max-width:none;
 }
-.dependencies-table .severity .score{
+.dependencies-table .severity .score-vulnerability{
     font-weight: bolder;
     font-size: larger;
     color: red;
 }
-.dependencies-table .severity .score:hover{
+.dependencies-table .severity .score-vulnerability:hover{
     color: rgb(192, 0, 0);
 }
 .dependencies-table .identifiers .tooltip-inner {

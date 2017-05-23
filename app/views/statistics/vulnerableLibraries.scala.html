@@ -53,7 +53,7 @@ $(document).ready(function(){
     <div class="help">
         <p>Libraries are sorted:</p>
         <ol>
-            <li>by total score (max vulnerability score × number of affected dependencies) if vulnerability score is defined for at least one vulnerability</li>
+            <li>by max vulnerability score if defined for at least one vulnerability</li>
             <li>by affected dependency count if the score above is not defined</li>
             <li>by number of vulnerabilities</li>
             <li>by affected project count</li>
@@ -63,8 +63,8 @@ $(document).ready(function(){
     @dependencyList(
         "vulnerable",
         vulnerableDependencies.sortBy(d => (
-                d.ysdssScore.map(-_),                                                           // total score is the king
-                if(d.ysdssScore.isEmpty) Some(-d.dependencies.size) else None,                  // more affected dependencies if no vulnerability has defined severity
+                d.maxCvssScore.map(-_),                                                         // maximum CVSS score is the king
+                if(d.maxCvssScore.isEmpty) Some(-d.dependencies.size) else None,                // more affected dependencies if no vulnerability has defined severity
                 -d.vulnerabilities.size,                                                        // more vulnerabilities
                 -d.projects.size,                                                               // more affected projects
                 d.cpeIdentifiers.map(_.toCpeIdentifierOption.get).toSeq.sorted.mkString(" "))   // at least make the order deterministic

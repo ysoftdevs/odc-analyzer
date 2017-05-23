@@ -73,7 +73,6 @@ final case class GroupedDependency(dependencies: Map[Dependency, Set[ReportInfo]
   def parsedDescriptions: Seq[Seq[Seq[String]]] = descriptions.toSeq.sorted.map(_.trim.split("\n\n").filterNot(_=="").toSeq.map(_.split("\n").toSeq))
   def isVulnerable: Boolean = vulnerabilities.nonEmpty
   def maxCvssScore = (Seq(None) ++ vulnerabilities.map(_.cvssScore)).max
-  def ysdssScore = maxCvssScore.map(_ * projects.size)
   def descriptions = dependencies.keySet.map(_.description)
   def projects = dependencies.values.flatten.toSet
   def fileNames = dependencies.keySet.map(_.fileName)
@@ -153,7 +152,6 @@ object RichBoolean{
 final case class Vulnerability(name: String, cweOption: Option[CWE], cvss: CvssRating, description: String, vulnerableSoftware: Seq[VulnerableSoftware], references: Seq[Reference]){
   import RichBoolean.toRichBoolean
   def cvssScore = cvss.score
-  def ysvssScore(affectedDeps: Set[GroupedDependency]) = cvssScore.map(_ * affectedDeps.flatMap(_.projects).toSet.size)
   def likelyMatchesOnlyWithoutVersion(dependencyIdentifiers: Set[Identifier]) = dependencyIdentifiers.forall { id =>
     // Rather a quick hack. Maybe it would be better to do this check in ODC.
     val versionlessCpeIdentifierOption = id.toCpeIdentifierOption.map(_.split(':').take(4).mkString(":"))
