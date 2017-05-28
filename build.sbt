@@ -89,6 +89,12 @@ libraryDependencies += "org.apache.geronimo.modules" % "geronimo-jdbc" % "2.0.2"
 
 libraryDependencies += "com.mockrunner" % "mockrunner-jdbc" % "1.1.1"
 
+libraryDependencies += "ch.qos.logback" % "logback-core" % "1.2.0"
+
+libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.2.0"
+
+libraryDependencies += "org.bouncycastle" % "bcprov-jdk15on" % "1.57"
+
 routesImport += "binders.QueryBinders._"
 
 // Uncomment to use Akka
