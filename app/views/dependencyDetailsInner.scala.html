@@ -63,7 +63,19 @@
     </table>
 </div>
 <h4 class="expandable" data-toggle="collapse" data-target="#@depPrefix-projects-details">Affected projects (@dep.projects.size)</h4>
-<ul id="@depPrefix-projects-details" class="collapse in">@for(p <- dep.projects.toIndexedSeq.sorted){<li>@friendlyProjectName(p)</li>}</ul>
+<div id="@depPrefix-projects-details" class="collapse in">
+    <ul>
+        @for(p <- dep.projects.toIndexedSeq.sorted){
+            <li>@friendlyProjectName(p)</li>
+        }
+    </ul>
+    @if(selectorOption.isDefined){
+        <h5 class="expandable collapsed sublist" data-toggle="collapse" data-target="#@depPrefix-projects-all-details">All affected projects (including those that aren't included by the filter)</h5>
+        <div id="@depPrefix-projects-all-details" class="collapse" data-lazyload-url="@routes.Statistics.affectedProjects(
+            depId = dep.hashes
+        )"></div>
+    }
+</div>
 <h4 class="expandable" data-toggle="collapse" data-target="#@depPrefix-vulnerabilities-details">Vulnerabilities (@dep.vulnerabilities.size)</h4>
 <ul id="@depPrefix-vulnerabilities-details" class="collapse in vulnerabilities-details">
     @for(vuln <- dep.vulnerabilities.toSeq.sortBy(_.cvssScore.map(-_)); vulnPrefix = s"$depPrefix-vulnerabilities-details-${vuln.name}"){

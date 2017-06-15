@@ -312,6 +312,16 @@ class Statistics @Inject()(
     }
   }
 
+  def affectedProjects(depId: Hashes) = ReadAction.async { implicit req =>
+    val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
+    resultsFuture flatMap { case (successfulResults, failedResults) =>
+      val selection = dependencyCheckReportsParser.parseReports(successfulResults, failedResults)
+      Future.successful(Ok(views.html.affectedProjects(
+        dep = selection.groupedDependenciesByHashes(depId)
+      )).withHeaders("Content-type" -> "text/plain; charset=utf-8"))
+    }
+  }
+
   def allFiles(selectorOption: Option[String]) = ReadAction.async { implicit req =>
     val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
     resultsFuture flatMap { allResults =>

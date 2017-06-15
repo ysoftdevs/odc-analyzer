@@ -23,6 +23,7 @@ GET         /https-test/with-redirect         controllers.Application.testHttps(
 GET         /https-test                       controllers.Application.testHttps(allowRedirect: Boolean = false)
 
 GET         /stats/dependency-details.htmlf   controllers.Statistics.dependencyDetails(selectorOption: Option[String], depPrefix: String, depId: com.ysoft.odc.Hashes)
+GET         /stats/affected-projects.htmlf    controllers.Statistics.affectedProjects(depId: com.ysoft.odc.Hashes)
 GET         /stats/basic                      controllers.Statistics.basic(selector: Option[String] = None)
 GET         /stats/basic/*selector            controllers.Statistics.basic(selector: Option[String])
 GET         /stats/details                    controllers.Statistics.vulnerabilities(selector: Option[String], tagId: Option[Int])

@@ -1,0 +1,6 @@
+@(dep: GroupedDependency)
+<ul>
+    @for(p <- dep.projects.toIndexedSeq.sorted){
+        <li>@friendlyProjectName(p)</li>
+    }
+</ul>
