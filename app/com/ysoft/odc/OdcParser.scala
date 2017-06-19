@@ -30,6 +30,7 @@ final case class Analysis(scanInfo: SerializableXml, name: String, reportDate: D
 
 final case class Hashes(sha1: String, md5: String){
   override def toString: String = s"Hashes(sha1=$sha1, md5=$md5)"
+  def serialized = s"$sha1-$md5"
 }
 
 final case class Exclusion(sha1: String) extends AnyVal {
@@ -76,8 +77,8 @@ final case class GroupedDependency(dependencies: Map[Dependency, Set[ReportInfo]
   def descriptions = dependencies.keySet.map(_.description)
   def projects = dependencies.values.flatten.toSet
   def fileNames = dependencies.keySet.map(_.fileName)
-  def hashes = dependencies.keys.head.hashes // valid since all deps in a group have the same hashes
-  val sha1 = hashes.sha1
+  val hashes: Hashes = dependencies.keys.head.hashes // valid since all deps in a group have the same hashes
+  def sha1: String = hashes.sha1
   def identifiers: Set[Identifier] = dependencies.keySet.flatMap(_.identifiers)
   def evidenceCollected: Set[Evidence] = dependencies.keySet.flatMap(_.evidenceCollected)
   def suppressedIdentifiers: Set[Identifier] = dependencies.keySet.flatMap(_.suppressedIdentifiers)

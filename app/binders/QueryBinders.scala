@@ -26,7 +26,7 @@ object QueryBinders {
     str => str.split('-') match {
       case Array(sha1, md5) => Hashes(sha1 = sha1, md5 = md5)
     },
-    hashes => s"${hashes.sha1}-${hashes.md5}"
+    hashes => hashes.serialized
   )
 
   implicit object MapStringIntJavascriptLiteral extends JavascriptLiteral[Map[String, Int]] {

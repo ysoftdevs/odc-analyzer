@@ -48,7 +48,7 @@ object Statistics{
   // TODO: Move this to a better place
 
 
-  implicit val hashesWrites = Writes[Hashes](h => JsString(s"${h.sha1}-${h.md5}"))
+  implicit val hashesWrites = Writes[Hashes](h => JsString(h.serialized))
   implicit val confidenceWrites = Writes[Confidence](c => JsString(c.toString))
   implicit val identifierWrites = Json.writes[Identifier]
   implicit val evidenceWrites = Json.writes[Evidence]

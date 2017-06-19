@@ -12,7 +12,7 @@
             <th class="actions"></th>
         </tr>
     </thead>
-    @for(dep <- list; depPrefix = s"$idPrefix-${dep.sha1}"){
+    @for(dep <- list; depPrefix = s"$idPrefix-${dep.hashes.serialized}"){
         <tr>
             <td class="severity">
                 @for(s <- dep.maxCvssScore) {
@@ -23,7 +23,7 @@
                 }
             </td>
             <td class="identifiers">
-                @libraryIdentificationList(dep, Some(cpe => s"$idPrefix-${dep.sha1}-suppression-cpe-${cpeHtmlId(cpe)}"), addLink = false, addButtons = addButtons)
+                @libraryIdentificationList(dep, Some(cpe => s"$idPrefix-${dep.hashes.serialized}-suppression-cpe-${cpeHtmlId(cpe)}"), addLink = false, addButtons = addButtons)
             </td>
             <td class="vulns">@for(s <- dep.maxCvssScore) {@dep.vulnerabilities.size}</td>
             <td class="actions">
