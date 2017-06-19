@@ -27,10 +27,10 @@
             </td>
             <td class="vulns">@for(s <- dep.maxCvssScore) {@dep.vulnerabilities.size}</td>
             <td class="actions">
-                <button data-toggle="collapse" data-target="#@depPrefix-details" class="btn btn-info collapsed expandable expandable-right"></span></button>
+                <button data-toggle="collapse" data-target="#@depPrefix-details" class="btn btn-info collapsed expandable expandable-right"></button>
             </td>
         </tr>
-        <tr data-wrapper="<td colspan='4' xxxstyle='width: 100%;'></td>" id="@depPrefix-details" class="details collapse" data-lazyload-url="@routes.Statistics.dependencyDetails(
+        <tr data-wrapper="<td colspan='4'></td>" id="@depPrefix-details" class="details collapse" data-lazyload-url="@routes.Statistics.dependencyDetails(
             depPrefix = depPrefix,
             depId = dep.hashes,
             selectorOption = selectorOption
