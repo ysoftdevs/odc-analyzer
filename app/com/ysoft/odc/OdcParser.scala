@@ -33,6 +33,12 @@ final case class Hashes(sha1: String, md5: String){
   def serialized = s"$sha1-$md5"
 }
 
+object Hashes {
+  def unserialize(str: String): com.ysoft.odc.Hashes =  str.split('-') match {
+    case Array(sha1, md5) => Hashes(sha1 = sha1, md5 = md5)
+  }
+}
+
 final case class Exclusion(sha1: String) extends AnyVal {
   def matches(dependency: Dependency): Boolean = dependency.sha1 == sha1
   def matches(group: GroupedDependency): Boolean = group.sha1 == sha1

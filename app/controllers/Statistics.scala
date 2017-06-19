@@ -312,6 +312,18 @@ class Statistics @Inject()(
     }
   }
 
+  def library(selectorOption: Option[String], depId: Hashes) = ReadAction.async { implicit req =>
+    val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
+    resultsFuture flatMap { allResults =>
+      select(allResults, selectorOption).fold(Future.successful(notFound())) { selection =>
+        Future.successful(Ok(views.html.library(
+          dep = selection.result.groupedDependenciesByHashes(depId),
+          selectorOption = selectorOption
+        )))
+      }
+    }
+  }
+
   def affectedProjects(depId: Hashes) = ReadAction.async { implicit req =>
     val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
     resultsFuture flatMap { case (successfulResults, failedResults) =>

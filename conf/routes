@@ -22,6 +22,7 @@ POST        /unsnooze/:snoozeId               controllers.Application.unsnooze(s
 GET         /https-test/with-redirect         controllers.Application.testHttps(allowRedirect: Boolean = true)
 GET         /https-test                       controllers.Application.testHttps(allowRedirect: Boolean = false)
 
+GET         /library/:depId                   controllers.Statistics.library(selectorOption: Option[String], depId: com.ysoft.odc.Hashes)
 GET         /stats/dependency-details.htmlf   controllers.Statistics.dependencyDetails(selectorOption: Option[String], depPrefix: String, depId: com.ysoft.odc.Hashes)
 GET         /stats/affected-projects.htmlf    controllers.Statistics.affectedProjects(depId: com.ysoft.odc.Hashes)
 GET         /stats/basic                      controllers.Statistics.basic(selector: Option[String] = None)

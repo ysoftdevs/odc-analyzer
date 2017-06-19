@@ -23,11 +23,14 @@ object QueryBinders {
   }
 
   implicit val hashedBindable = QueryStringBindable.bindableString.transform[Hashes](
-    str => str.split('-') match {
-      case Array(sha1, md5) => Hashes(sha1 = sha1, md5 = md5)
-    },
+    str => Hashes.unserialize(str),
     hashes => hashes.serialized
   )
+
+  implicit val hashesPathBinder = new PathBindable[Hashes] {
+    override def bind(key: String, value: String): Either[String, Hashes] = Right(Hashes.unserialize(value))
+    override def unbind(key: String, value: Hashes): String = value.serialized
+  }
 
   implicit object MapStringIntJavascriptLiteral extends JavascriptLiteral[Map[String, Int]] {
     override def to(value: Map[String, Int]): String = formats.writes(value).toString()
