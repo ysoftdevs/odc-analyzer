@@ -4,6 +4,7 @@ import com.google.inject.Inject
 import com.google.inject.name.Named
 import org.ccil.cowan.tagsoup.jaxp.SAXFactoryImpl
 import play.api.libs.ws.{WS, WSClient}
+import services.SingleFutureExecutionThrottler
 import upickle.default._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -64,6 +65,8 @@ final case class FlatArtifactDirectory(name: String, items: Seq[(String, String)
 
 final class BambooDownloader @Inject()(@Named("bamboo-server-url") val server: String, @Named("bamboo-authentication") auth: AtlassianAuthentication)(implicit executionContext: ExecutionContext, wSClient: WSClient) extends Downloader {
 
+  private val throttler = new SingleFutureExecutionThrottler()
+
   private object ArtifactKeys{
     val BuildLog = "Build log"
     val ResultsHtml = "Report results-HTML"
@@ -76,7 +79,7 @@ final class BambooDownloader @Inject()(@Named("bamboo-server-url") val server: S
   }
 
   private def downloadArtifact(url: String, name: String)(implicit wSClient: WSClient): Future[FlatArtifactItem] = {
-    bambooUrl(url).get().map{response =>
+    throttler.throttle(bambooUrl(url).get()).map{response =>
       response.header("Content-Disposition") match{
         case Some(_) => ArtifactFile(name = name, data = response.bodyAsBytes)
         case None =>
@@ -149,7 +152,7 @@ final class BambooDownloader @Inject()(@Named("bamboo-server-url") val server: S
 
   private def downloadProjectReport(project: String, versionOption: Option[Int]): Future[(String, Try[(Build, ArtifactItem, ArtifactFile)])] = {
     val url = s"$server/rest/api/latest/result/$project-${versionOption.getOrElse("latest")}.json?expand=artifacts"
-    val resultFuture = (bambooUrl(url).get().flatMap { response =>
+    val resultFuture = (throttler.throttle(bambooUrl(url).get()).flatMap { response =>
       val build = read[Build](response.body)
       val artifactMap: Map[String, Artifact] = build.artifacts.artifact.map(x => x.name -> x).toMap
       val logFuture = downloadArtifact(artifactMap, ArtifactKeys.BuildLog).map(_.asInstanceOf[ArtifactFile])
