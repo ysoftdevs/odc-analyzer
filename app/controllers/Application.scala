@@ -6,6 +6,7 @@ import com.github.nscala_time.time.Imports._
 import com.google.inject.Inject
 import com.google.inject.name.Named
 import models._
+import modules.TemplateCustomization
 import play.api.Logger
 import play.api.data.Forms._
 import play.api.data._
@@ -55,7 +56,8 @@ class Application @Inject() (
                               libraryTagAssignmentsService: LibraryTagAssignmentsService,
                               protected val dbConfigProvider: DatabaseConfigProvider,
                               val messagesApi: MessagesApi,
-                              val env: AuthEnv
+                              val env: AuthEnv,
+                              val templateCustomization: TemplateCustomization
 ) extends AuthenticatedController with HasDatabaseConfigProvider[models.profile.type]{
 
   import ApplicationFormats._

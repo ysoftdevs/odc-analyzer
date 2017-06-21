@@ -7,6 +7,7 @@ import com.mohiva.play.silhouette.api._
 import com.mohiva.play.silhouette.api.util.Clock
 import com.mohiva.play.silhouette.impl.authenticators.CookieAuthenticator
 import models.User
+import modules.TemplateCustomization
 import play.api.data.Form
 import play.api.data.Forms.{email => _, _}
 import play.api.i18n.{Messages, MessagesApi}
@@ -20,6 +21,7 @@ final case class LoginRequest(username: String, password: String, rememberMe: Bo
 class AuthController @Inject() (
   val messagesApi: MessagesApi,
   val env: Environment[User, CookieAuthenticator],
+  val templateCustomization: TemplateCustomization,
   clock: Clock,
   credentialsVerificationService: CredentialsVerificationService,
   userService: UserService

@@ -1,4 +1,4 @@
-@(unused_id: String, si: SnoozeInfo, versions: Map[String, Int])(implicit requestHeader: RequestHeader)
+@(unused_id: String, si: SnoozeInfo, versions: Map[String, Int])(implicit requestHeader: RequestHeader, mainTemplateData: MainTemplateData)
 @import helper._
 @if(si.isSnoozed){
     <h3>Snooze details</h3>

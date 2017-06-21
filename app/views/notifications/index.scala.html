@@ -1,5 +1,5 @@
 @import helper._
-@(projects: Seq[ReportInfo], watchedProjects: Set[String], failedReports: Set[String], filter: Option[String])(implicit req: DefaultRequest)
+@(projects: Seq[ReportInfo], watchedProjects: Set[String], failedReports: Set[String], filter: Option[String])(implicit req: DefaultRequest, mainTemplateData: MainTemplateData)
 @button(action: Call)(label: String) = {
     @form(action, 'style -> "display: inline-block"){
         @CSRF.formField

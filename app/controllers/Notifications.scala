@@ -7,6 +7,7 @@ import com.ysoft.concurrent.FutureLock._
 import com.ysoft.odc.statistics.{FailedProjects, LibDepStatistics}
 import com.ysoft.odc.{Absolutizer, ArtifactFile, ArtifactItem, SetDiff}
 import models.{EmailMessageId, ExportedVulnerability}
+import modules.TemplateCustomization
 import play.api.i18n.MessagesApi
 import play.api.libs.Crypto
 import play.api.mvc.Action
@@ -27,7 +28,8 @@ class Notifications @Inject()(
   emailExportServiceOption: Option[EmailExportService],
   odcService: OdcService,
   absolutizer: Absolutizer,
-  val env: AuthEnv
+  val env: AuthEnv,
+  val templateCustomization: TemplateCustomization
 )(implicit val messagesApi: MessagesApi, executionContext: ExecutionContext) extends AuthenticatedController {
 
   private val versions = Map[String, Int]()

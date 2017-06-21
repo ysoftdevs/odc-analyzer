@@ -1,4 +1,4 @@
-@(items: IndexedSeq[GroupedDependency])(implicit rh: DefaultRequest, snoozes: SnoozesInfo, messages: Messages)
+@(items: IndexedSeq[GroupedDependency])(implicit rh: DefaultRequest, snoozes: SnoozesInfo, messages: Messages, mainTemplateData: MainTemplateData)
 (ignore this item)
 @groupedDependencyList(name = "", id = s"grouped-dependencies-warning-${java.util.UUID.randomUUID.toString}", collapse = false, allowSnoozes = false, versions = Map())(list = items)
 @for(groupedDependency <- items){

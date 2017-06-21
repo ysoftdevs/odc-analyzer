@@ -1,4 +1,4 @@
-@(id: String, si: SnoozeInfo, versions: Map[String, Int])(implicit rh: RequestHeader, snoozes: SnoozesInfo, messages: Messages)
+@(id: String, si: SnoozeInfo, versions: Map[String, Int])(implicit rh: RequestHeader, snoozes: SnoozesInfo, messages: Messages, mainTemplateData: MainTemplateData)
 @import helper._
 
 @form((routes.Application.snooze(id, versions): Call).withFragment(id), 'id -> s"$id-snoozing", 'class -> s"snoozing collapse${if(si.shouldExpandForm) "in" else ""}") {

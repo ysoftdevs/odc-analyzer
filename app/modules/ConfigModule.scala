@@ -86,6 +86,7 @@ class FileCacheApi(path: Path) extends CacheApi{
 
 }
 
+case class TemplateCustomization(brandHtml: Option[String])
 
 class ConfigModule extends Module {
 
@@ -156,7 +157,8 @@ class ConfigModule extends Module {
     bind[ExecutionContext].qualifiedWith("email-sending").toInstance(ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())),
     bind[LogSmellChecks].qualifiedWith("log-smells").toInstance(LogSmellChecks(configuration.underlying.getAs[Map[String, LogSmell]]("yssdc.logSmells").getOrElse(Map()))),
     bind[Projects].to(parseProjects(configuration)),
-    bind[ApiConfig].to(parseApiConfig(configuration))
+    bind[ApiConfig].to(parseApiConfig(configuration)),
+    bind[TemplateCustomization].to(TemplateCustomization(configuration.underlying.getAs[String]("app.brand")))
   ) ++
     configuration.underlying.getAs[Absolutizer]("app").map(a => bind[Absolutizer].toInstance(a)) ++
     configuration.getString("play.cache.path").map(cachePath => bind[CacheApi].toInstance(new FileCacheApi(Paths.get(cachePath)))) ++

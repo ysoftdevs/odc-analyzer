@@ -4,7 +4,7 @@
     lds: LibDepStatistics,
     tagStatistics: Seq[TagStatistics],
     parsedReports: DependencyCheckReportsParser.Result
-)(implicit messagesApi: MessagesApi, requestHeader: DefaultRequest)
+)(implicit messagesApi: MessagesApi, requestHeader: DefaultRequest, mainTemplateData: MainTemplateData)
 @import com.ysoft.odc.CWE
 @import play.api.libs.json.{JsNull, JsString}
 @import scala.language.implicitConversions

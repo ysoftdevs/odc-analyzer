@@ -1,4 +1,4 @@
-@(list: Traversable[_], name: String, id: String, collapse: Boolean = false, allowSnoozes: Boolean = true, versions: Map[String, Int])(content: => Html)(implicit rh: DefaultRequest, snoozes: SnoozesInfo, messages: Messages)
+@(list: Traversable[_], name: String, id: String, collapse: Boolean = false, allowSnoozes: Boolean = true, versions: Map[String, Int])(content: => Html)(implicit rh: DefaultRequest, snoozes: SnoozesInfo, messages: Messages, mainTemplateData: MainTemplateData)
 @if(list.nonEmpty){
     @defining(snoozes(id)){ case si =>
         @if(allowSnoozes) {

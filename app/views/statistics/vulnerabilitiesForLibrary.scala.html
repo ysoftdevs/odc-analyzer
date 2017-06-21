@@ -2,7 +2,7 @@
     vulnsAndVersionOption: Option[(Traversable[Vulnerability], String)],
     cpes: Seq[String],
     isDbOld: Boolean
-)(implicit header: DefaultRequest)
+)(implicit header: DefaultRequest, mainTemplateData: MainTemplateData)
 @import helper._
 @main(
     title = "Vulnerabilities for a library"

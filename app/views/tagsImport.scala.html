@@ -1,4 +1,4 @@
-@(f: Form[String])(implicit requestHeader: DefaultRequest, messages: Messages)
+@(f: Form[String])(implicit requestHeader: DefaultRequest, messages: Messages, mainTemplateData: MainTemplateData)
 @import helper._
 @main("Data import"){
     @form(action = controllers.routes.Application.tagsImportAction()){

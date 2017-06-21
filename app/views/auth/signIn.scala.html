@@ -1,5 +1,5 @@
 @import helper._
-@(loginForm: Form[LoginRequest], callback: String/*, socialProviderRegistry: SocialProviderRegistry*/)(implicit requestHeader: DefaultRequest, messages: Messages)
+@(loginForm: Form[LoginRequest], callback: String/*, socialProviderRegistry: SocialProviderRegistry*/)(implicit requestHeader: DefaultRequest, messages: Messages, mainTemplateData: MainTemplateData)
 
 @main("Log in"){
     @form(routes.AuthController.authenticate(callback)){

@@ -3,7 +3,7 @@
     projectsWithSelection: ProjectsWithSelection,
     allDependencies: Seq[GroupedDependency],
     failedProjects: FailedProjects
-)(implicit header: DefaultRequest)
+)(implicit header: DefaultRequest, mainTemplateData: MainTemplateData)
 
 @main(
     title = s"All libraries for ${projectsWithSelection.projectNameText}",

@@ -9,6 +9,7 @@ import com.ysoft.odc._
 import controllers.DependencyCheckReportsParser.ResultWithSelection
 import controllers.api.{ApiConfig, ApiController}
 import models.LibraryTag
+import modules.TemplateCustomization
 import org.joda.time.DateTime
 import play.api.i18n.MessagesApi
 import play.api.libs.json._
@@ -73,7 +74,8 @@ class Statistics @Inject()(
   vulnerabilityNotificationService: VulnerabilityNotificationService,
   issueTrackerServiceOption: Option[IssueTrackerService],
   protected val apiConfig: ApiConfig,
-  val env: AuthEnv
+  val env: AuthEnv,
+  val templateCustomization: TemplateCustomization
 )(implicit val messagesApi: MessagesApi, executionContext: ExecutionContext) extends AuthenticatedController with ApiController {
 
   private val versions = Map[String, Int]()

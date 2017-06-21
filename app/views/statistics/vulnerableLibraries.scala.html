@@ -4,7 +4,7 @@
     allDependenciesCount: Int,
     dependenciesWithSuppressedVulnerabilitiesOnlyCount: Int,
     reports: DependencyCheckReportsParser.Result
-)(implicit header: DefaultRequest)
+)(implicit header: DefaultRequest, mainTemplateData: MainTemplateData)
 
 @main(
     title = s"Vulnerable libraries for ${projectsWithSelection.projectNameText} (${vulnerableDependencies.size} deps, ${vulnerableDependencies.flatMap(_.cpeIdentifiers.map(_.toCpeIdentifierOption.get)).toSet.size} CPEs)",

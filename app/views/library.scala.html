@@ -1,4 +1,4 @@
-@(dep: GroupedDependency, selectorOption: Option[String])(implicit req: DefaultRequest, messages: Messages)
+@(dep: GroupedDependency, selectorOption: Option[String])(implicit req: DefaultRequest, messages: Messages, mainTemplateData: MainTemplateData)
 @main("Library details"){
     @libraryIdentificationList(dep, None, addLink = false, addButtons = false)
     @dependencyDetailsInner(depPrefix = "library-single-", dep = dep, selectorOption = selectorOption)

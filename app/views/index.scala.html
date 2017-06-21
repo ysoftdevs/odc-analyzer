@@ -9,7 +9,7 @@
     //librariesForTagsWithWarning: SortedMap[(Int, LibraryTag), Seq[(Int, Library)]],
     lastRefreshTime: DateTime,
     versions: Map[String, Int]
-)(implicit req: DefaultRequest, snoozes: SnoozesInfo , messages: Messages)
+)(implicit req: DefaultRequest, snoozes: SnoozesInfo, messages: Messages, mainTemplateData: MainTemplateData)
 @import com.ysoft.odc.Confidence
 @import helper._
 

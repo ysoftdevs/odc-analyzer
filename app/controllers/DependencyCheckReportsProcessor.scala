@@ -6,7 +6,7 @@ import com.google.inject.name.Named
 import com.ysoft.odc.Checks._
 import com.ysoft.odc._
 import com.ysoft.odc.statistics.FailedProjects
-import modules.{LogSmell, LogSmellChecks}
+import modules.{LogSmell, LogSmellChecks, TemplateCustomization}
 import org.joda.time.DateTimeConstants
 import play.api.Logger
 import play.api.i18n.{I18nSupport, MessagesApi}
@@ -25,8 +25,10 @@ final class DependencyCheckReportsProcessor @Inject() (
                                                   dependencyCheckReportsParser: DependencyCheckReportsParser,
                                                   @Named("missing-GAV-exclusions") missingGAVExclusions: MissingGavExclusions,
                                                   @Named("log-smells") logSmells: LogSmellChecks,
-                                                  val messagesApi: MessagesApi
+                                                  val messagesApi: MessagesApi,
+                                                  templateCustomization: TemplateCustomization
                                                   ) extends I18nSupport {
+  private implicit def mainTemplateData: MainTemplateData = MainTemplateData.createMainTemplateData(templateCustomization)
 
   private def parseDateTime(dt: String): DateTime = {
     if(dt.forall(_.isDigit)){

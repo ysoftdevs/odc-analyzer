@@ -8,7 +8,7 @@
     tagsLink: Set[Int] => Call,
     classificationLink: Option[Boolean] => Call,
     noTagLink: Boolean => Call
-)(implicit header: DefaultRequest)
+)(implicit header: DefaultRequest, mainTemplateData: MainTemplateData)
 @main(s"${requiredClassification match{case Some(true) => "Classified" case Some(false) => "Unclassified" case None => "All"}} dependencies (${selectedDependencies.size})") {
     <div>
         <div class="btn-group">
