@@ -30,6 +30,7 @@ final case class Analysis(scanInfo: SerializableXml, name: String, reportDate: D
 
 final case class Hashes(sha1: String, md5: String){
   override def toString: String = s"Hashes(sha1=$sha1, md5=$md5)"
+  def hashTuples: Seq[(String, String)] = Seq("sha1" -> sha1, "md5" -> md5)
   def serialized = s"$sha1-$md5"
 }
 
