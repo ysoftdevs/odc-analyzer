@@ -1,0 +1,5 @@
+@import com.ysoft.odc.Hashes
+@(depId: Hashes, selectorOption: Option[String])(implicit header: DefaultRequest, mainTemplateData: MainTemplateData)
+@main(title=s"Unknown library"){
+    There is no library found for hashes @depId.hashTuples.map{case (hashType, hashValue) => @hashType=@hashValue}.mkString(", "). It might have been removed or updated to a newer version.
+}

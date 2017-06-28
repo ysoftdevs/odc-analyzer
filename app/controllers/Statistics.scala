@@ -318,10 +318,10 @@ class Statistics @Inject()(
     val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
     resultsFuture flatMap { allResults =>
       select(allResults, selectorOption).fold(Future.successful(notFound())) { selection =>
-        Future.successful(Ok(views.html.library(
-          dep = selection.result.groupedDependenciesByHashes(depId),
-          selectorOption = selectorOption
-        )))
+        Future.successful(selection.result.groupedDependenciesByHashes.get(depId) match {
+          case None => NotFound(views.html.libraryNotFound(depId = depId, selectorOption = selectorOption))
+          case Some(dep) => Ok(views.html.library(dep = dep, selectorOption = selectorOption))
+        })
       }
     }
   }
