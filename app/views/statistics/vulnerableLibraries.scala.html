@@ -18,9 +18,9 @@
 <script type="text/javascript">
 $(document).ready(function(){
     var data = [
-        ['Vulnerable', (@(vulnerableDependencies.size))],
-        ['Suppressed vulnerabilities only', (@(dependenciesWithSuppressedVulnerabilitiesOnlyCount))],
-        ['No known vulnerability', (@(allDependenciesCount - vulnerableDependencies.size - dependenciesWithSuppressedVulnerabilitiesOnlyCount))]
+        ['Vulnerable libraries', (@(vulnerableDependencies.size))],
+        ['Libraries with all vulnerabilities suppressed', (@(dependenciesWithSuppressedVulnerabilitiesOnlyCount))],
+        ['Libraries with no known vulnerability', (@(allDependenciesCount - vulnerableDependencies.size - dependenciesWithSuppressedVulnerabilitiesOnlyCount))]
     ];
     var plot1 = jQuery.jqplot ('vulnerable-dependencies-chart', [data], {
         seriesDefaults: {
