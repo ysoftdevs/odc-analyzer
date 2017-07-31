@@ -1,9 +1,0 @@
-task buildPlayApp(type:Exec){
-	//environment("JAVA_HOME", System.getProperty("java.home"))
-	if(System.getProperty("os.name").toLowerCase().startsWith("win")){
-		// unsupported OS because of silent fails; commandLine 'cmd', '/c', 'activator', 'stage'
-		commandLine 'report_error'
-	}else{
-		commandLine './activator', 'clean', 'dist'
-	}
-}
