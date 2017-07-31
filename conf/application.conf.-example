@@ -19,6 +19,8 @@ play.i18n.langs = [ "en" ]
 app{
   host = "localhost" # You have to configure the host there. If you don't do so, all accesses via host will be prohibited. This is a protection against DNS rebind attacks.
   secure = false # Use true iff you use HTTPS
+  # brand = "Your brand" # optional
+  # vulnerableLibraryAdvice = "If in doubt, contact our security team." # optional
 }
 
 yssdc{
@@ -141,6 +143,15 @@ slick.dbs.odc {
 #play.modules.disabled+="play.api.cache.EhCacheModule"
 #play.cache.path = "/home/user/.cache/odc-analysis"
 
+## [Optional] Path to OWASP Dependency Check
+## Once you configure it, you enable some checking features. You also need Maven on PATH.
+## (!) Note that some properties like DB credentials might be passed as arguments and thus available via /proc (depends on OS).
+# odc {
+#   odcPath = "/path/to/dependency-check-X.Y.Z-release"
+#   workingDirectory = "/path/to/odc/config" # directory ODC works in; you can use relative paths from this directory
+#   propertyFile = "odc.props" # path to ODC property file
+#   extraArgs = [] # Unstable conf; This might be changed or removed without any notice!!!
+# }
 
 silhouette {
   # Authenticator settings

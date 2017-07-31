@@ -285,7 +285,8 @@ class Application @Inject() (
     Ok(
       JavaScriptReverseRouter("Routes")(
         routes.javascript.Application.setClassified,
-        routes.javascript.Application.addTag
+        routes.javascript.Application.addTag,
+        routes.javascript.LibraryAdvisor.scan
       )
     ).as("text/javascript")
   }

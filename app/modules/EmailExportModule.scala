@@ -8,7 +8,7 @@ import net.ceedubs.ficus.Ficus._
 import net.codingwell.scalaguice.ScalaModule
 import play.api.Configuration
 import play.api.libs.mailer.MailerClient
-import services.{OdcService, EmailExportService, EmailExportType, VulnerabilityNotificationService}
+import services.{OdcDbService, EmailExportService, EmailExportType, VulnerabilityNotificationService}
 import net.ceedubs.ficus.readers.EnumerationReader._
 import scala.concurrent.ExecutionContext
 
@@ -22,7 +22,7 @@ class EmailExportModule extends AbstractModule with ScalaModule{
                                  mailerClient: MailerClient,
                                  notificationService: VulnerabilityNotificationService,
                                  absolutizer: Absolutizer,
-                                 odcService: OdcService,
+                                 odcService: OdcDbService,
                                  @Named("email-sending") emailSendingExecutionContext: ExecutionContext
                                )(implicit executionContext: ExecutionContext): Option[EmailExportService] = {
     println(s"emailSendingExecutionContext = $emailSendingExecutionContext")

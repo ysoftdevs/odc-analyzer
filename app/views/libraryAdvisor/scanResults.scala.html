@@ -1,0 +1,35 @@
+@import services.SingleLibraryScanResult
+@(isDbOld: Boolean, singleLibraryScanResult: SingleLibraryScanResult)(implicit header: DefaultRequest, mainTemplateData: MainTemplateData)
+@import singleLibraryScanResult.{transitiveDependencies, includesTransitive, mainDependency}
+<h2>Overall result</h2>
+@vulnerableTransitive = @{transitiveDependencies.exists(_.isVulnerable)}
+@vulnerableMain = @{mainDependency.isVulnerable}
+@if(isDbOld){
+    <div class="alert alert-warning">The vulnerability database seems to be outdated. Result might be thus inaccurate. Contact the administrator, please.</div>
+}
+@(vulnerableMain, vulnerableTransitive) match {
+    case (false, false) => {
+        <div class="alert alert-success">No vulnerability has been found in the library@if(includesTransitive){ or in its transitive dependencies}.</div>
+    }
+    case (false, true) => {<div class="alert alert-warning">While there is no vulnerability found in the library itself, but scan has identified some issues in its transitive dependencies. Maybe you should evict some dependency with a fixed version. @vulnerabilityAdvice()</div>}
+    case (true, false) => {<div class="alert alert-danger">There is a vulnerability found in the main dependency. Transitive dependencies are OK. Please consider using a patched version or consider impact of the vulnerabilities. @vulnerabilityAdvice()</div>}
+    case (true, true) => {<div class="alert alert-danger">There is a vulnerability found in both the main dependency and transitive dependencies. Please consider using a patched version or consider impact of the vulnerabilities. @vulnerabilityAdvice()</div>}
+}
+@if(!includesTransitive){
+    <div class="alert alert-warning">This type of scan does not scan transitive dependencies.</div>
+}
+<h2>The library itself</h2>
+@dependencyList("id", Seq(mainDependency), None, expand = _.isVulnerable, addButtons = false, lazyLoad = false, showAffectedProjects = false, expandVulnerabilities = true, vulnerabilitySearch = false)
+@if(includesTransitive) {
+    <h2>Transitive dependencies</h2>
+    @if(transitiveDependencies.nonEmpty) {
+        @if(vulnerableTransitive){
+            <div class="alert alert-info">Those vulnerabilities are primarily sorted by highest-rated known vulnerability. Transitive dependencies without a known vulnerability are at the end of the list.</div>
+        }else{
+            <div class="alert alert-info">There is no known vulnerability in transitive dependencies. They are listed just for your information.</div>
+        }
+        @dependencyList("id", transitiveDependencies.sorted(severityOrdering), None, expand = _.isVulnerable, addButtons = false, lazyLoad = false, showAffectedProjects = false, expandVulnerabilities = true, vulnerabilitySearch = true)
+    }else{
+        This library has no transitive dependencies.
+    }
+}

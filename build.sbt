@@ -75,7 +75,7 @@ libraryDependencies += "net.codingwell" %% "scala-guice" % "4.0.0"
 
 libraryDependencies += "com.iheart" %% "ficus" % "1.4.0"
 
-libraryDependencies += "org.owasp" % "dependency-check-core" % "1.4.2"
+libraryDependencies += "org.owasp" % "dependency-check-core" % "1.4.5"
 
 libraryDependencies += "com.typesafe.play" %% "play-mailer" % "3.0.1"
 

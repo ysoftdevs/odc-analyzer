@@ -19,7 +19,7 @@ object EmailExportType extends Enumeration {
   val Digest = Value("digest")
 }
 
-class EmailExportService(from: String, nobodyInterestedContact: String, val exportType: EmailExportType.Value, odcService: OdcService, mailerClient: MailerClient, notificationService: VulnerabilityNotificationService, emailSendingExecutionContext: ExecutionContext, absolutizer: Absolutizer)(implicit executionContext: ExecutionContext) {
+class EmailExportService(from: String, nobodyInterestedContact: String, val exportType: EmailExportType.Value, odcService: OdcDbService, mailerClient: MailerClient, notificationService: VulnerabilityNotificationService, emailSendingExecutionContext: ExecutionContext, absolutizer: Absolutizer)(implicit executionContext: ExecutionContext) {
   // Maybe it is not the best place for exportType, but I am not sure if we want this to be configurable. If no, then we can get rid of it. If yes, we should refactor it.
 
 

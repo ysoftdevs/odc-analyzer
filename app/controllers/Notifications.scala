@@ -26,7 +26,7 @@ class Notifications @Inject()(
   dependencyCheckReportsParser: DependencyCheckReportsParser,
   issueTrackerServiceOption: Option[IssueTrackerService],
   emailExportServiceOption: Option[EmailExportService],
-  odcService: OdcService,
+  odcService: OdcDbService,
   absolutizer: Absolutizer,
   val env: AuthEnv,
   val templateCustomization: TemplateCustomization

@@ -62,15 +62,8 @@ $(document).ready(function(){
     </div>
     @dependencyList(
         "vulnerable",
-        vulnerableDependencies.sortBy(d => (
-                d.maxCvssScore.map(-_),                                                         // maximum CVSS score is the king
-                if(d.maxCvssScore.isEmpty) Some(-d.dependencies.size) else None,                // more affected dependencies if no vulnerability has defined severity
-                -d.vulnerabilities.size,                                                        // more vulnerabilities
-                -d.projects.size,                                                               // more affected projects
-                d.cpeIdentifiers.map(_.toCpeIdentifierOption.get).toSeq.sorted.mkString(" "))   // at least make the order deterministic
-        ),
+        vulnerableDependencies.sorted(severityOrdering),
         selectorOption = projectsWithSelection.selectorString,
-        expandByDefault = false,
         addButtons = false
     )
 }

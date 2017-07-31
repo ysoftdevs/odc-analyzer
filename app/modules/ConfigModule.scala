@@ -6,7 +6,7 @@ import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.Executors
 
 import akka.util.ClassLoaderObjectInputStream
-import com.typesafe.config.{Config, ConfigObject, ConfigValue}
+import com.typesafe.config.{Config, ConfigObject}
 import com.ysoft.odc._
 import controllers.api._
 import controllers.{MissingGavExclusions, Projects, TeamId, WarningSeverity}
@@ -15,9 +15,7 @@ import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 import play.api.cache.CacheApi
 import play.api.inject.{Binding, Module}
 import play.api.{Configuration, Environment, Logger}
-import services.IssueTrackerService
 
-import scala.collection.mutable
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
 import scala.reflect.ClassTag
@@ -86,7 +84,7 @@ class FileCacheApi(path: Path) extends CacheApi{
 
 }
 
-case class TemplateCustomization(brandHtml: Option[String])
+case class TemplateCustomization(brandHtml: Option[String], vulnerableLibraryAdvice: Option[String])
 
 class ConfigModule extends Module {
 
@@ -158,7 +156,7 @@ class ConfigModule extends Module {
     bind[LogSmellChecks].qualifiedWith("log-smells").toInstance(LogSmellChecks(configuration.underlying.getAs[Map[String, LogSmell]]("yssdc.logSmells").getOrElse(Map()))),
     bind[Projects].to(parseProjects(configuration)),
     bind[ApiConfig].to(parseApiConfig(configuration)),
-    bind[TemplateCustomization].to(TemplateCustomization(configuration.underlying.getAs[String]("app.brand")))
+    bind[TemplateCustomization].to(TemplateCustomization(configuration.underlying.getAs[String]("app.brand"), configuration.underlying.getAs[String]("app.vulnerableLibraryAdvice")))
   ) ++
     configuration.underlying.getAs[Absolutizer]("app").map(a => bind[Absolutizer].toInstance(a)) ++
     configuration.getString("play.cache.path").map(cachePath => bind[CacheApi].toInstance(new FileCacheApi(Paths.get(cachePath)))) ++

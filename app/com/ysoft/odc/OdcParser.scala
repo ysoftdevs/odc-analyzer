@@ -59,8 +59,9 @@ final case class Dependency(
   license: String,
   vulnerabilities: Seq[Vulnerability],
   suppressedVulnerabilities: Seq[Vulnerability],
-  relatedDependencies: SerializableXml
+  relatedDependencies: Seq[RelatedDependency]
 ){
+
   def hashes = Hashes(sha1 = sha1, md5 = md5)
 
   def plainLibraryIdentifiers: Set[PlainLibraryIdentifier] = identifiers.flatMap(_.toLibraryIdentifierOption).toSet
@@ -70,6 +71,20 @@ final case class Dependency(
   Method equals seems to be a CPU hog there. I am not sure if we can do something reasonable about it.
   We can compare by this.hashes, but, in such case, dependencies that differ in evidence will be considered the same if their JAR hashes are the same, which would break some sanity checks.
    */
+
+}
+final case class RelatedDependency(
+  fileName: String,
+  filePath: String,
+  md5: String,
+  sha1: String,
+  description: String,
+  identifiers: Seq[Identifier],
+  suppressedIdentifiers: Seq[Identifier],
+  license: String,
+  vulnerabilities: Seq[Vulnerability],
+  suppressedVulnerabilities: Seq[Vulnerability]
+){
 }
 
 /**
@@ -189,6 +204,7 @@ object OdcParser {
 
   private val vulnPool = new ObjectPool()
   private val evidencePool = new ObjectPool()
+  private val relatedDependencyPool = new ObjectPool()
   private val dependencyPool = new ObjectPool()
   private val identifierPool = new ObjectPool()
   private val vulnerableSoftwarePool = new ObjectPool()
@@ -285,7 +301,7 @@ object OdcParser {
     ))
   }
 
-  def parseIdentifier(node: Node, expectedLabel: String): Identifier = {
+  def parseIdentifier(node: Node, expectedLabel: String, parseConfidence: Boolean = true): Identifier = {
     if(node.label != expectedLabel){
       sys.error("Unexpected label for identifier: "+node.label)
     }
@@ -298,7 +314,7 @@ object OdcParser {
       },
       url = (node \ "url").text,
       identifierType = node.attribute("type").get.text,
-      confidence = Confidence.withName(node.attribute("confidence").get.text)
+      confidence = if(parseConfidence) Confidence.withName(node.attribute("confidence").get.text) else Confidence.Medium
     ))
   }
 
@@ -319,7 +335,25 @@ object OdcParser {
       license = (node \ "license").text,
       vulnerabilities = vulnerabilities.map(parseVulnerability(_)),
       suppressedVulnerabilities = suppressedVulnerabilities.map(parseVulnerability(_, "suppressedVulnerability")),
-      relatedDependencies = SerializableXml(node \ "relatedDependencies")
+      relatedDependencies = (node \ "relatedDependencies" \ "relatedDependency").map(parseRelatedDependency)
+    ))
+  }
+
+  def parseRelatedDependency(node: Node): RelatedDependency = {
+    checkElements(node, Set("fileName", "filePath", "md5", "sha1", "description", "evidenceCollected", "identifier", "license", "vulnerabilities", "relatedDependencies"))
+    checkParams(node, Set())
+    val (vulnerabilities: Seq[Node], suppressedVulnerabilities: Seq[Node]) = (node \ "vulnerabilities").headOption.map(filterWhitespace).getOrElse(Seq()).partition(_.label == "vulnerability")
+    relatedDependencyPool(RelatedDependency(
+      fileName = (node \ "fileName").text,
+      filePath = (node \ "filePath").text,
+      md5 = (node \ "md5").text,
+      sha1 = (node \ "sha1").text,
+      description = (node \ "description").text,
+      identifiers = (node \ "identifier").map(parseIdentifier(_, "identifier", parseConfidence = false)),
+      suppressedIdentifiers = (node \ "suppressedIdentifier").map(parseIdentifier(_, "suppressedIdentifier", parseConfidence = false)),
+      license = (node \ "license").text,
+      vulnerabilities = vulnerabilities.map(parseVulnerability(_)),
+      suppressedVulnerabilities = suppressedVulnerabilities.map(parseVulnerability(_, "suppressedVulnerability"))
     ))
   }
 

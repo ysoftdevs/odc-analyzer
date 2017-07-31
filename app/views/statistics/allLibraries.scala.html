@@ -14,7 +14,6 @@
         "all",
         allDependencies.sortBy(_.identifiers.toIndexedSeq.sortBy(i => (i.confidence.id, i.identifierType, i.name)).mkString(", ")),
         selectorOption = projectsWithSelection.selectorString,
-        expandByDefault = false,
         addButtons = false
     )
 

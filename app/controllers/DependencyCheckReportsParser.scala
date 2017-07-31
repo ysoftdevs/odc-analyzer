@@ -113,6 +113,7 @@ private final case class BadFilter(pattern: String) extends Filter{
 }
 
 object DependencyCheckReportsParser{
+  def forAdHocScan(analysis: Analysis): Result = Result(Map(ReportInfo("adHocScan", "Ad hoc scan", "AHS", None) -> analysis), Map(), new ProjectsWithReports(new Projects(Map(), Map(), Map()), Set()), Map())
   final case class ResultWithSelection(result: Result, projectsWithSelection: ProjectsWithSelection)
   final case class Result(bareFlatReports: Map[ReportInfo, Analysis], bareFailedAnalysises: Map[ReportInfo, Throwable], projectsReportInfo: ProjectsWithReports/*TODO: maybe rename to rootProjects*/, failedReportDownloads: Map[ReportInfo, Throwable]){
     //lazy val projectsReportInfo = new ProjectsWithReports(projects, (bareFlatReports.keySet ++ bareFailedAnalysises.keySet ++ failedReportDownloads.keySet).map(_.fullId)) // TODO: consider renaming to projectsWithReports
@@ -126,6 +127,7 @@ object DependencyCheckReportsParser{
       groupedDependencies.toSet.flatMap((grDep: GroupedDependency) => grDep.plainLibraryIdentifiers.map(_ -> grDep)).groupBy(_._1).mapValues(_.map(_._2)).map(identity)
     lazy val groupedDependenciesByHashes: Map[Hashes, GroupedDependency] = groupedDependencies.map(gd => gd.hashes -> gd).toMap
     lazy val vulnerableDependencies = groupedDependencies.filter(_.vulnerabilities.nonEmpty)
+    lazy val nonVulnerableDependencies = groupedDependencies.filter(_.vulnerabilities.isEmpty)
     lazy val suppressedOnlyDependencies = groupedDependencies.filter(gd => gd.vulnerabilities.isEmpty && gd.suppressedIdentifiers.nonEmpty)
 
     private val ProjectSelectorPattern = """^project:(.*)$""".r

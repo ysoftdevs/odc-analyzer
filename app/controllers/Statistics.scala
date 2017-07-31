@@ -67,7 +67,8 @@ class Statistics @Inject()(
   dependencyCheckReportsParser: DependencyCheckReportsParser,
   librariesService: LibrariesService,
   tagsService: TagsService,
-  odcService: OdcService,
+  odcDbService: OdcDbService,
+  odcServiceOption: Option[OdcService],
   libraryTagAssignmentsService: LibraryTagAssignmentsService,
   @Named("missing-GAV-exclusions") missingGAVExclusions: MissingGavExclusions,
   projects: Projects,
@@ -98,14 +99,14 @@ class Statistics @Inject()(
     }else{
       val now = DateTime.now()
       val oldDataThreshold = 2.days
-      val lastDbUpdateFuture = odcService.loadLastDbUpdate()
+      val lastDbUpdateFuture = odcDbService.loadLastDbUpdate()
       val isOldFuture = lastDbUpdateFuture.map{ lastUpdate => now - oldDataThreshold > lastUpdate}
       versionOption match {
         case Some(version) =>
           for {
-            res1 <- Future.traverse(versionlessCpes) { versionlessCpe => odcService.findRelevantCpes(versionlessCpe, version) }
+            res1 <- Future.traverse(versionlessCpes) { versionlessCpe => odcDbService.findRelevantCpes(versionlessCpe, version) }
             vulnIds = res1.flatten.map(_.vulnerabilityId).toSet
-            vulns <- Future.traverse(vulnIds)(id => odcService.getVulnerabilityDetails(id).map(_.get))
+            vulns <- Future.traverse(vulnIds)(id => odcDbService.getVulnerabilityDetails(id).map(_.get))
             isOld <- isOldFuture
           } yield Ok(views.html.statistics.vulnerabilitiesForLibrary(
             vulnsAndVersionOption = Some((vulns, version)),
@@ -213,17 +214,27 @@ class Statistics @Inject()(
         }// .map(identity) // The .map(identity) materializes lazily mapped Map (because .mapValues is lazy). I am, however, unsure if this is a good idea. Probably not.
         vulns.get(name).fold{
           for{
-            vulnOption <- odcService.getVulnerabilityDetails(name)
+            vulnOption <- odcDbService.getVulnerabilityDetails(name)
             issueOption <- issueOptionFuture
-          } yield Ok(views.html.statistics.vulnerabilityNotFound( // TODO: the not found page might be replaced by some page explaining that there is no project affected by that vulnerability
-            name = name,
+          } yield vulnOption.fold(
+            Ok(views.html.statistics.vulnerabilityNotFound(
+              name = name,
+              projectsWithSelection = selection.projectsWithSelection,
+              failedProjects = selection.result.failedProjects,
+              issueOption = issueOption
+            ))
+          )(vuln => Ok(views.html.statistics.vulnerability(
             projectsWithSelection = selection.projectsWithSelection,
             failedProjects = selection.result.failedProjects,
-            issueOption = issueOption
-          ))
+            issueOption = issueOption,
+            vulnerability = vuln,
+            affectedProjects = Map(),
+            affectedLibraries = Set(),
+            vulnerableDependencies = Set()
+          )))
         }{ vulnerableDependencies =>
           for {
-            vulnOption <- odcService.getVulnerabilityDetails(name)
+            vulnOption <- odcDbService.getVulnerabilityDetails(name)
             plainLibs <- librariesService.byPlainLibraryIdentifiers(vulnerableDependencies.flatMap(_.plainLibraryIdentifiers)).map(_.keySet)
             issueOption <- issueOptionFuture
           } yield vulnOption.fold{

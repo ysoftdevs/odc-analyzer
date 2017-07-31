@@ -1,0 +1,82 @@
+@(identifier: Option[String], inputHints: Seq[Html])(implicit header: DefaultRequest, mainTemplateData: MainTemplateData)
+
+@main(
+  title = s"Library check"
+){
+
+    <script type="text/javascript">
+        var LibraryAdvisorUI = {
+            scan: function(){
+                var submitButton = $("#submit-button");
+                var resultsArea = $("#scan-results");
+                var identifierArea = $("#library-identifier");
+                var identifier = identifierArea.val();
+                function disableSubmit(){
+                    submitButton.attr({disabled: true});
+                    identifierArea.attr({disabled: true});
+                }
+                function enableSubmit(){
+                    submitButton.attr({disabled: false});
+                    identifierArea.attr({disabled: false});
+                }
+                disableSubmit();
+                resultsArea.html($('<div class="progress">')
+                    .append(
+                        $('<div class="progress-bar progress-bar-striped active" role="progressbar" style="width: 100%;">Scanning, please wait a minute…</div>')
+                    )
+                );
+                $.ajax({
+                    url: Routes.controllers.LibraryAdvisor.scan().url,
+                    data: JSON.stringify(identifier),
+                    method: 'POST',
+                    dataType: "text",
+                    contentType : 'application/json',
+                    success: function(res){
+                        resultsArea.html(res);
+                        enableSubmit();
+                    },
+                    error: function(x, e){
+                        if(x.status === 404){
+                            resultsArea.html(x.responseText);
+                        }else{
+                            resultsArea.html($('<div class="alert alert-danger">An error has happened during scan. Check logs for more information.</div>'))
+                            console.log("error", e)
+                        }
+                        enableSubmit();
+                    }
+                });
+            }
+        };
+
+        $(function(){
+            $('#library-identifier').keydown(function (e) {
+                var isEnter = (e.keyCode === 13 || e.keyCode === 10);
+                if (isEnter && !e.shiftKey) { // capture enter, pass shift+enter
+                    LibraryAdvisorUI.scan();
+                };
+            }).on("input", function(){
+                var $this = $(this);
+                $this.scrollTop($this.height());
+            });
+            $('[data-toggle="tooltip"]').tooltip();
+        });
+    </script>
+    <div class="alert alert-info">This tool helps you with selecting a new libraries (or with choosing the right library version for update) by automating a boring part of the process: It can look for known vulnerabilities.</div>
+    <div class="input-group">
+        <div id="library-identifier-wrapper">
+            <textarea
+                class="form-control" id="library-identifier"
+                placeholder="Specification of one library"
+                data-toggle="tooltip" data-placement="bottom"
+                title="Supported formats:<ul>@for(hint <- inputHints){<li>@hint.toString()</li>}</ul>"
+                data-html="true"
+                style="height: 46px;"
+            >@identifier</textarea>
+        </div>
+        <span class="input-group-btn">
+            <button id="submit-button" class="btn btn-primary btn-lg" onclick="LibraryAdvisorUI.scan()">Scan</button>
+        </span>
+    </div>
+
+    <div id="scan-results"></div>
+}

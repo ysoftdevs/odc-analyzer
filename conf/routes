@@ -33,6 +33,9 @@ GET         /stats/libraries/all              controllers.Statistics.allLibrarie
 GET         /stats/libraries/files            controllers.Statistics.allFiles(selector: Option[String])
 GET         /stats/libraries/gavs             controllers.Statistics.allGavs(selector: Option[String])
 
+GET         /advisor                          controllers.LibraryAdvisor.index(dependency: Option[String] ?= None)
+POST        /advisor/scan                     controllers.LibraryAdvisor.scan()
+
 GET         /notifications                    controllers.Notifications.listProjects(filter: Option[String])
 POST        /notifications/watch              controllers.Notifications.watch(project: String, filter: Option[String])
 POST        /notifications/unwatch            controllers.Notifications.unwatch(project: String, filter: Option[String])

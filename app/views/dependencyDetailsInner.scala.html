@@ -1,13 +1,25 @@
-@(depPrefix: String, dep: GroupedDependency, selectorOption: Option[String])
+@(depPrefix: String, dep: GroupedDependency, selectorOption: Option[String], showAffectedProjects: Boolean = false, expandVulnerabilities: Boolean = false, vulnerabilitySearch: Boolean = true)
 
-@dep.cpeIdentifiers.toSeq match {
-    case Seq() => {}
-    case cpeIds => {
-        <p>
-            <a href="@routes.Statistics.searchVulnerableSoftware(
-                cpeIds.map(_.name.split(':').take(4).mkString(":")).toSeq, None
-            )" title="Search for known vulnerabilities" class="btn btn-default">Look for vulnerabilities in other versions</a>
-        </p>
+@if(vulnerabilitySearch){
+    @vulnerableSoftwareSearches(dep) match {
+        case Seq() => {}
+        case Seq((link, description)) => {
+            <p>
+                <a href="@link" title="Search for known vulnerabilities" class="btn btn-default">Look for vulnerabilities in other versions</a>
+            </p>
+        }
+        case options => {
+            <p>
+                <div class="dropdown">
+                    <button class="btn btn-default dropdown-toggle" type="button" data-toggle="dropdown">Look for vulnerabilities in other versions <span class="caret"></span></button>
+                    <ul class="dropdown-menu">
+                        @for((link, description) <- options){
+                            <li><a href="@link">@description</a></li>
+                        }
+                    </ul>
+                </div>
+            </p>
+        }
     }
 }
 
@@ -62,30 +74,32 @@
         }
     </table>
 </div>
-<h4 class="expandable" data-toggle="collapse" data-target="#@depPrefix-projects-details">Affected projects (@dep.projects.size)</h4>
-<div id="@depPrefix-projects-details" class="collapse in">
-    <ul>
-        @for(p <- dep.projects.toIndexedSeq.sorted){
-            <li>@friendlyProjectName(p)</li>
+@if(showAffectedProjects){
+    <h4 class="expandable" data-toggle="collapse" data-target="#@depPrefix-projects-details">Affected projects (@dep.projects.size)</h4>
+    <div id="@depPrefix-projects-details" class="collapse in">
+        <ul>
+            @for(p <- dep.projects.toIndexedSeq.sorted){
+                <li>@friendlyProjectName(p)</li>
+            }
+        </ul>
+        @if(selectorOption.isDefined){
+            <h5 class="expandable collapsed sublist" data-toggle="collapse" data-target="#@depPrefix-projects-all-details">All affected projects (including those that aren't included by the filter)</h5>
+            <div id="@depPrefix-projects-all-details" class="collapse" data-lazyload-url="@routes.Statistics.affectedProjects(
+                depId = dep.hashes
+            )"></div>
         }
-    </ul>
-    @if(selectorOption.isDefined){
-        <h5 class="expandable collapsed sublist" data-toggle="collapse" data-target="#@depPrefix-projects-all-details">All affected projects (including those that aren't included by the filter)</h5>
-        <div id="@depPrefix-projects-all-details" class="collapse" data-lazyload-url="@routes.Statistics.affectedProjects(
-            depId = dep.hashes
-        )"></div>
-    }
-</div>
+    </div>
+}
 <h4 class="expandable" data-toggle="collapse" data-target="#@depPrefix-vulnerabilities-details">Vulnerabilities (@dep.vulnerabilities.size)</h4>
 <ul id="@depPrefix-vulnerabilities-details" class="collapse in vulnerabilities-details">
     @for(vuln <- dep.vulnerabilities.toSeq.sortBy(_.cvssScore.map(-_)); vulnPrefix = s"$depPrefix-vulnerabilities-details-${vuln.name}"){
         <li>
-            <h5 data-toggle="collapse" class="expandable collapsed" data-target="#@vulnPrefix-details">
+            <h5 data-toggle="collapse" class="expandable@if(!expandVulnerabilities){ collapsed}" data-target="#@vulnPrefix-details">
                 @vuln.name
                 <a href="@routes.Statistics.vulnerability(vuln.name, selectorOption)" target="_blank" onclick="event.stopPropagation();"><span class="glyphicon glyphicon-new-window"></span></a>
                 @if(vuln.likelyMatchesOnlyWithoutVersion(dep.identifiers)){<span class="warning-expandable" title="Heuristics suspect false positive. Double check <b>what version</b> does this vulnerability apply to, please. It seems that the vulnerability database does not provide enough information to check it automatically." onmouseover="$(this).tooltip({placement: 'right', html:true}).tooltip('show');"></span>}
             </h5>
-            <div id="@vulnPrefix-details" class="collapse vulnerability-expandable">
+            <div id="@vulnPrefix-details" class="collapse vulnerability-expandable@if(expandVulnerabilities){ in}">
                 @vulnerability("h6", depPrefix+"-"+vuln.name, vuln)
                 <p><a class="btn btn-primary more" target="_blank" href="@routes.Statistics.vulnerability(vuln.name, selectorOption)">Full details about this vulnerability</a></p>
             </div>

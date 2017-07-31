@@ -184,7 +184,7 @@ h3.library-identification{
     content: "";
     display: none;
 }
-.dependencies-table .severity .tooltip-inner {
+.dependencies-table .severity .tooltip-inner, #library-identifier-wrapper .tooltip-inner {
     white-space:nowrap;
     max-width:none;
 }
@@ -242,4 +242,11 @@ h3.library-identification{
 
 .sublist{
     padding-left: 23px;
+}
+
+#library-identifier-wrapper .tooltip-inner{
+    text-align: left;
+}
+#scan-results{
+    margin-top: 64px;
 }

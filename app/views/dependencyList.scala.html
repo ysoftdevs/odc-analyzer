@@ -1,4 +1,4 @@
-@(idPrefix: String, list: Seq[GroupedDependency], selectorOption: Option[String], expandByDefault: Boolean = true, addButtons: Boolean = true)
+@(idPrefix: String, list: Seq[GroupedDependency], selectorOption: Option[String], lazyLoad: Boolean = true, expand: GroupedDependency => Boolean = _ => false, addButtons: Boolean = true, showAffectedProjects: Boolean = true, expandVulnerabilities: Boolean = false, vulnerabilitySearch: Boolean = true)
 @cpeHtmlId(cpe: String) = @{
     cpe.getBytes("utf-8").mkString("-")
 }
@@ -15,11 +15,15 @@
     @for(dep <- list; depPrefix = s"$idPrefix-${dep.hashes.serialized}"){
         <tr>
             <td class="severity">
-                @for(s <- dep.maxCvssScore) {
+                @dep.maxCvssScore.fold{
+                    <span class="label label-success">OK</span>
+                }{ s =>
                     <span class="score-vulnerability">@s</span>
-                    <span class="computation-details">
-                        <span class="score-projects">affects @dep.projects.size @if(dep.projects.size>1){projects}else{project}</span>
-                    </span>
+                    @if(showAffectedProjects){
+                        <span class="computation-details">
+                            <span class="score-projects">affects @dep.projects.size @if(dep.projects.size>1){projects}else{project}</span>
+                        </span>
+                    }
                 }
             </td>
             <td class="identifiers">
@@ -27,14 +31,18 @@
             </td>
             <td class="vulns">@for(s <- dep.maxCvssScore) {@dep.vulnerabilities.size}</td>
             <td class="actions">
-                <button data-toggle="collapse" data-target="#@depPrefix-details" class="btn btn-info collapsed expandable expandable-right"></button>
+                <button data-toggle="collapse" data-target="#@depPrefix-details" class="btn btn-info @if(!expand(dep)){collapsed} expandable expandable-right"></button>
             </td>
         </tr>
-        <tr data-wrapper="<td colspan='4'></td>" id="@depPrefix-details" class="details collapse" data-lazyload-url="@routes.Statistics.dependencyDetails(
+        <tr data-wrapper="<td colspan='4'></td>" id="@depPrefix-details" class="details collapse@if(expand(dep)){ in}" @if(lazyLoad){data-lazyload-url="@routes.Statistics.dependencyDetails(
             depPrefix = depPrefix,
             depId = dep.hashes,
             selectorOption = selectorOption
-        )"></tr>
+        )"}>
+            @if(!lazyLoad){
+                <td colspan="4">@dependencyDetailsInner(depPrefix = depPrefix, dep = dep, selectorOption = selectorOption, showAffectedProjects = showAffectedProjects, expandVulnerabilities = expandVulnerabilities, vulnerabilitySearch = vulnerabilitySearch)</td>
+            }
+        </tr>
     }
 </table>
 <script type="text/javascript">

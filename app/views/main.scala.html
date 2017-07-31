@@ -47,6 +47,7 @@
                 @filter = @{projectsOption.flatMap(_._1.selectorString)}
                 <li><a href="@routes.Statistics.vulnerableLibraries(filter)">Vulnerable libraries</a></li>
                 <li><a href="@routes.Statistics.vulnerabilities(filter, None)">Vulnerabilities</a></li>
+                <li><a href="@routes.LibraryAdvisor.index()">Scan library</a></li>
                 <li><a href="@routes.Notifications.listProjects(filter)">Notifications</a></li>
                 <li><a href="@routes.Application.index(Map())">Status</a></li>
                 <li><a href="#" data-toggle="collapse" data-target=".extended-menu">…</a></li>

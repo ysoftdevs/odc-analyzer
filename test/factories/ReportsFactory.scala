@@ -38,7 +38,7 @@ object ReportsFactory{
       license = "something",
       vulnerabilities = Seq(),
       suppressedVulnerabilities = Seq(),
-      relatedDependencies = SerializableXml("<c></c>")
+      relatedDependencies = Seq()
     )
   }
 
