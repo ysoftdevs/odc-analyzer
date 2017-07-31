@@ -146,6 +146,7 @@ slick.dbs.odc {
 ## [Optional] Path to OWASP Dependency Check
 ## Once you configure it, you enable some checking features. You also need Maven on PATH.
 ## (!) Note that some properties like DB credentials might be passed as arguments and thus available via /proc (depends on OS).
+## (i) You will also need to configure contexts.odc-workers for this functionality.
 # odc {
 #   odcPath = "/path/to/dependency-check-X.Y.Z-release"
 #   workingDirectory = "/path/to/odc/config" # directory ODC works in; you can use relative paths from this directory
@@ -182,3 +183,10 @@ play{
   }
 }
 
+#contexts {
+#  odc-workers {
+#    fork-join-executor {
+#      parallelism-max = 2
+#    }
+#  }
+#}
