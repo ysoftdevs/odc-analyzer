@@ -85,7 +85,11 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
 
   def scanDotNet(packageName: String, version: String): Future[SingleLibraryScanResult] = scanInternal(
     createOdcCommand = createStandardOdcCommand,
-    isMainLibraryOption = Some(_.fileName == s"$packageName.dll"),
+    isMainLibraryOption = Some(dep =>
+      (dep.fileName == s"$packageName.dll") ||
+        (dep.fileName == s"$packageName.$version.nupkg") ||
+        (dep.fileName == s"$packageName.$version.nupkg: $packageName.nuspec")
+    ),
     enableMultipleMainLibraries = true,
     limitations = Some("Scans for .NET libraries usually contain multiple DLL variants of the same library, because multiple targets (e.g., .NETFramework 4.0, .NETFramework 4.5, .NETStandard 1.0, Portable Class Library, …) are scanned.")
   ){dir =>
