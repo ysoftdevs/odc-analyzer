@@ -98,7 +98,6 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
       </packages>
     val packagesConfigFile = dir.resolve("..").resolve("packages.config")
     Files.write(packagesConfigFile, packagesConfig.toString().getBytes(UTF_8))
-    import sys.process._
     val cmd = Seq(
       nugetBin,
       "restore",
@@ -106,7 +105,20 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
       "-PackagesDirectory",
       dir.toString
     ) ++ odcConfig.dotNetNugetSource.fold(Seq[String]())(source => Seq("-source", source))
-    cmd.!!
+    val process = new ProcessBuilder(cmd: _*).
+      directory(new File(odcConfig.workingDirectory)).
+      redirectErrorStream(true).
+      start()
+    val rawLog = consumeStream(process.getInputStream)
+    val res = process.waitFor()
+    if(res != 0){
+      val log = new String(rawLog)
+      val NotFoundRegex = """Unable to find version '([^']+)' of package '([^']+)'.""".r
+      log.lines.toStream.head match {
+        case NotFoundRegex(version, packageName) => throw DependencyNotFoundException(s"$packageName:$version")
+        case _ => sys.error(s"Bad return code from NuGet: $res. Output: $log")
+      }
+    }
   }
 
   private def consumeStream(in: InputStream): Array[Byte] = {
