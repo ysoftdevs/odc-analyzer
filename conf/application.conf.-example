@@ -149,10 +149,11 @@ slick.dbs.odc {
 ## (i) You will also need to configure contexts.odc-workers for this functionality.
 # odc {
 #   odcPath = "/path/to/dependency-check-X.Y.Z-release"
-#   workingDirectory = "/path/to/odc/config" # directory ODC works in; you can use relative paths from this directory
-#   propertyFile = "odc.props" # path to ODC property file
-#   extraArgs = [] # Unstable conf; This might be changed or removed without any notice!!!
-#   cleanTmpDir = true # Leave temporary directory for debugging
+#   workingDirectory = "/path/to/odc/config" # [optional] directory ODC works in; you can use relative paths from this directory
+#   propertyFile = "odc.props" # [optional] path to ODC property file
+#   dotNetNugetSource = "https://path/to/your/nuget/proxy" # [optional]
+#   extraArgs = [] # [optional] Unstable conf; This might be changed or removed without any notice!!!
+#   cleanTmpDir = true # [optional] Keep temporary directory content for debugging
 # }
 
 silhouette {

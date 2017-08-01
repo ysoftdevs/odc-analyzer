@@ -21,7 +21,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 case class OdcDbConnectionConfig(driverClass: String, driverJar: String, url: String, user: String, password: String)
 
-case class OdcConfig(odcPath: String, extraArgs: Seq[String] = Seq(), workingDirectory: String = ".", propertyFile: Option[String], cleanTmpDir: Boolean = true)
+case class OdcConfig(odcPath: String, extraArgs: Seq[String] = Seq(), workingDirectory: String = ".", propertyFile: Option[String], cleanTmpDir: Boolean = true, dotNetNugetSource: Option[String])
 
 case class SingleLibraryScanResult(mainDependencies: Seq[GroupedDependency], transitiveDependencies: Seq[GroupedDependency], includesTransitive: Boolean, limitationsOption: Option[String])
 
@@ -95,13 +95,14 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
     val packagesConfigFile = dir.resolve("..").resolve("packages.config")
     Files.write(packagesConfigFile, packagesConfig.toString().getBytes(UTF_8))
     import sys.process._
-    Seq(
+    val cmd = Seq(
       nugetBin,
       "restore",
       packagesConfigFile.toString,
       "-PackagesDirectory",
       dir.toString
-    ).!!
+    ) ++ odcConfig.dotNetNugetSource.fold(Seq[String]())(source => Seq("-source", source))
+    cmd.!!
   }
 
   private def consumeStream(in: InputStream): Array[Byte] = {
