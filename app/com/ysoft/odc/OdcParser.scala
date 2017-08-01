@@ -47,6 +47,19 @@ final case class Exclusion(sha1: String) extends AnyVal {
 
 final case class Evidence(source: String, name: String, value: String, confidence: String, evidenceType: String)
 
+abstract sealed class AbstractDependency{
+  def fileName: String
+  def filePath: String
+  def md5: String
+  def sha1: String
+  def description: String
+  def identifiers: Seq[Identifier]
+  def suppressedIdentifiers: Seq[Identifier]
+  def license: String
+  def vulnerabilities: Seq[Vulnerability]
+  def suppressedVulnerabilities: Seq[Vulnerability]
+}
+
 final case class Dependency(
   fileName: String,
   filePath: String,
@@ -60,7 +73,7 @@ final case class Dependency(
   vulnerabilities: Seq[Vulnerability],
   suppressedVulnerabilities: Seq[Vulnerability],
   relatedDependencies: Seq[RelatedDependency]
-){
+) extends AbstractDependency {
 
   def hashes = Hashes(sha1 = sha1, md5 = md5)
 
@@ -84,8 +97,7 @@ final case class RelatedDependency(
   license: String,
   vulnerabilities: Seq[Vulnerability],
   suppressedVulnerabilities: Seq[Vulnerability]
-){
-}
+) extends AbstractDependency
 
 /**
  * A group of dependencies having the same fingerprints

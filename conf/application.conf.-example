@@ -152,6 +152,7 @@ slick.dbs.odc {
 #   workingDirectory = "/path/to/odc/config" # directory ODC works in; you can use relative paths from this directory
 #   propertyFile = "odc.props" # path to ODC property file
 #   extraArgs = [] # Unstable conf; This might be changed or removed without any notice!!!
+#   cleanTmpDir = true # Leave temporary directory for debugging
 # }
 
 silhouette {

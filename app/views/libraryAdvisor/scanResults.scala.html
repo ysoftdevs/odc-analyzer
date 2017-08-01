@@ -1,11 +1,14 @@
 @import services.SingleLibraryScanResult
 @(isDbOld: Boolean, singleLibraryScanResult: SingleLibraryScanResult)(implicit header: DefaultRequest, mainTemplateData: MainTemplateData)
-@import singleLibraryScanResult.{transitiveDependencies, includesTransitive, mainDependency}
+@import singleLibraryScanResult.{transitiveDependencies, includesTransitive, mainDependencies, limitationsOption}
 <h2>Overall result</h2>
 @vulnerableTransitive = @{transitiveDependencies.exists(_.isVulnerable)}
-@vulnerableMain = @{mainDependency.isVulnerable}
+@vulnerableMain = @{mainDependencies.exists(_.isVulnerable)}
 @if(isDbOld){
     <div class="alert alert-warning">The vulnerability database seems to be outdated. Result might be thus inaccurate. Contact the administrator, please.</div>
+}
+@for(limitations <- limitationsOption){
+    <div class="alert alert-warning"><strong>This scan has some limitations: </strong>@limitations</div>
 }
 @(vulnerableMain, vulnerableTransitive) match {
     case (false, false) => {
@@ -19,7 +22,7 @@
     <div class="alert alert-warning">This type of scan does not scan transitive dependencies.</div>
 }
 <h2>The library itself</h2>
-@dependencyList("id", Seq(mainDependency), None, expand = _.isVulnerable, addButtons = false, lazyLoad = false, showAffectedProjects = false, expandVulnerabilities = true, vulnerabilitySearch = false)
+@dependencyList("id", mainDependencies, None, expand = _.isVulnerable, addButtons = false, lazyLoad = false, showAffectedProjects = false, expandVulnerabilities = true, vulnerabilitySearch = false)
 @if(includesTransitive) {
     <h2>Transitive dependencies</h2>
     @if(transitiveDependencies.nonEmpty) {

@@ -12,24 +12,25 @@ import java.util.{Properties, Map => JMap}
 import _root_.org.apache.commons.lang3.SystemUtils
 import _root_.org.owasp.dependencycheck.dependency.{VulnerableSoftware => OdcVulnerableSoftware}
 import com.google.inject.Inject
-import com.ysoft.odc.{GroupedDependency, Identifier, OdcParser}
+import com.ysoft.odc.{AbstractDependency, GroupedDependency, OdcParser}
 import controllers.DependencyCheckReportsParser
-import play.api.Application
 import play.api.libs.concurrent.Akka
+import play.api.{Application, Logger}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 case class OdcDbConnectionConfig(driverClass: String, driverJar: String, url: String, user: String, password: String)
 
-case class OdcConfig(odcPath: String, extraArgs: Seq[String] = Seq(), workingDirectory: String = ".", propertyFile: Option[String])
+case class OdcConfig(odcPath: String, extraArgs: Seq[String] = Seq(), workingDirectory: String = ".", propertyFile: Option[String], cleanTmpDir: Boolean = true)
 
-case class SingleLibraryScanResult(mainDependency: GroupedDependency, transitiveDependencies: Seq[GroupedDependency], includesTransitive: Boolean)
+case class SingleLibraryScanResult(mainDependencies: Seq[GroupedDependency], transitiveDependencies: Seq[GroupedDependency], includesTransitive: Boolean, limitationsOption: Option[String])
 
 class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbConnectionConfig)(implicit application: Application){
   private implicit val executionContext: ExecutionContext = Akka.system.dispatchers.lookup("contexts.odc-workers")
   private def suffix = if(SystemUtils.IS_OS_WINDOWS) "bat" else "sh"
   private def odcBin = new File(new File(odcConfig.odcPath), "bin"+separatorChar+"dependency-check."+suffix).getAbsolutePath
   private def mavenBin = "mvn"
+  private def nugetBin = "nuget"
   private val OutputFormat = "XML"
   private val DependencyNotFoundPrefix = "[ERROR] Failed to execute goal on project odc-adhoc-project: Could not resolve dependencies for project com.ysoft:odc-adhoc-project:jar:1.0-SNAPSHOT: Could not find artifact "
 
@@ -45,7 +46,7 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
 
   def scanMaven(groupId: String, artifactId: String, version: String): Future[SingleLibraryScanResult] = scanInternal(
     createOdcCommand = createMavenOdcCommand,
-    isMainLibraryOption = Some(_.exists(id => id.identifierType == "maven" && id.name == s"$groupId:$artifactId:$version")),
+    isMainLibraryOption = Some(_.identifiers.exists(id => id.identifierType == "maven" && id.name == s"$groupId:$artifactId:$version")),
     logChecks = mavenLogChecks
   ){ dir =>
     val pomXml = <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -82,6 +83,27 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
     Files.write(dir.resolve("pom.xml"), pomXml.toString.getBytes(UTF_8))
   }
 
+  def scanDotNet(packageName: String, version: String): Future[SingleLibraryScanResult] = scanInternal(
+    createOdcCommand = createStandardOdcCommand,
+    isMainLibraryOption = Some(_.fileName == s"$packageName.dll"),
+    enableMultipleMainLibraries = true,
+    limitations = Some("Scans for .NET libraries usually contain multiple DLL variants of the same library, because multiple targets (e.g., .NETFramework 4.0, .NETFramework 4.5, .NETStandard 1.0, Portable Class Library, …) are scanned.")
+  ){dir =>
+    val packagesConfig = <packages>
+        <package id={packageName} version={version} />
+      </packages>
+    val packagesConfigFile = dir.resolve("..").resolve("packages.config")
+    Files.write(packagesConfigFile, packagesConfig.toString().getBytes(UTF_8))
+    import sys.process._
+    Seq(
+      nugetBin,
+      "restore",
+      packagesConfigFile.toString,
+      "-PackagesDirectory",
+      dir.toString
+    ).!!
+  }
+
   private def consumeStream(in: InputStream): Array[Byte] = {
     val baos = new ByteArrayOutputStream()
     val buff = new Array[Byte](1024)
@@ -94,8 +116,10 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
 
   private def scanInternal(
     createOdcCommand: (String, Path, String) => Seq[String] = createStandardOdcCommand,
-    isMainLibraryOption: Option[Seq[Identifier] => Boolean],
-    logChecks: String => Unit = s => ()
+    isMainLibraryOption: Option[AbstractDependency => Boolean],
+    logChecks: String => Unit = s => (),
+    enableMultipleMainLibraries: Boolean = false,
+    limitations: Option[String] = None
   )(
     f: Path => Unit
   ): Future[SingleLibraryScanResult] = Future{
@@ -120,12 +144,29 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
         sys.error(s"Non-zero return value: $res; output: $log")
       }
       val result = DependencyCheckReportsParser.forAdHocScan(OdcParser.parseXmlReport(Files.readAllBytes(Paths.get(reportFilename))))
-      val (Seq(mainLibrary), otherLibraries) = result.allDependencies.partition{case (dep, _) => isMainLibraryOption.fold(true)(f => f(dep.identifiers) || dep.relatedDependencies.map(_.identifiers).exists(f))}
-      SingleLibraryScanResult(
-        mainDependency = GroupedDependency(Seq(mainLibrary)),
-        transitiveDependencies = otherLibraries.map(dep => GroupedDependency(Seq(dep))),
-        includesTransitive = isMainLibraryOption.isDefined
-      )
+      result.allDependencies.partition{case (dep, _) =>
+        isMainLibraryOption.fold(true)(f => f(dep) || dep.relatedDependencies.exists(f))
+      } match {
+        case (Seq(), _) => sys.error("No library is selected as the main library")
+        case (Seq(mainLibrary), otherLibraries) =>
+          SingleLibraryScanResult(
+            mainDependencies = Seq(GroupedDependency(Seq(mainLibrary))),
+            transitiveDependencies = otherLibraries.map(dep => GroupedDependency(Seq(dep))),
+            includesTransitive = isMainLibraryOption.isDefined,
+            limitationsOption = limitations
+          )
+        case (mainLibraries, otherLibraries) =>
+          if(enableMultipleMainLibraries) {
+            SingleLibraryScanResult(
+              mainDependencies = mainLibraries.map(dep => GroupedDependency(Seq(dep))),
+              transitiveDependencies = otherLibraries.map(dep => GroupedDependency(Seq(dep))),
+              includesTransitive = isMainLibraryOption.isDefined,
+              limitationsOption = limitations
+            )
+          } else {
+            sys.error(s"multiple (${mainLibraries.size}) libraries selected as the main library: "+otherLibraries)
+          }
+      }
     }
   }
 
@@ -136,24 +177,7 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
 
   private def createHintfulOdcCommand(scandirPrefix: String, path: Path, reportFilename: String): Seq[String] = {
     val newPropertyFile = s"${scandirPrefix}odc.properties"
-    val p = new Properties()
-    for(origPropFile <- odcConfig.propertyFile){
-      val in = new FileInputStream(Paths.get(odcConfig.workingDirectory).resolve(origPropFile).toFile)
-      try{
-        p.load(in)
-      }finally{
-        in.close()
-      }
-    }
-    import scala.collection.JavaConversions._
-    p.put("hints.file", s"${scandirPrefix}hints.xml")
-    p.putAll(dbProps)
-    val out = new FileOutputStream(Paths.get(newPropertyFile).toFile)
-    try{
-      p.store(out, "no comment")
-    }finally {
-      out.close()
-    }
+    createModifiedProps(newPropertyFile, Map("hints.file" -> s"${scandirPrefix}hints.xml"))
     val cmdBase = Seq(
       odcBin,
       "-s", path.toString,
@@ -167,7 +191,30 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
     cmdBase ++ odcConfig.extraArgs
   }
 
+  private def createModifiedProps(newPropertyFile: String, additionalProps: Map[String, String] = Map()) = {
+    val p = new Properties()
+    for (origPropFile <- odcConfig.propertyFile) {
+      val in = new FileInputStream(Paths.get(odcConfig.workingDirectory).resolve(origPropFile).toFile)
+      try {
+        p.load(in)
+      } finally {
+        in.close()
+      }
+    }
+    import scala.collection.JavaConversions._
+    p.putAll(dbProps)
+    p.putAll(additionalProps)
+    val out = new FileOutputStream(Paths.get(newPropertyFile).toFile)
+    try {
+      p.store(out, "no comment")
+    } finally {
+      out.close()
+    }
+  }
+
   private def createStandardOdcCommand(scandirPrefix: String, path: Path, reportFilename: String): Seq[String] = {
+    val newPropertyFile = s"${scandirPrefix}odc.properties"
+    createModifiedProps(newPropertyFile)
     val cmdBase = Seq(
       odcBin,
       "-s", path.toString,
@@ -175,8 +222,9 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
       "--noupdate",
       "-f", OutputFormat,
       "-l", s"${scandirPrefix}verbose.log",
-      "--out", reportFilename
-    ) ++ odcConfig.propertyFile.fold(Seq[String]())(Seq("-P", _))
+      "--out", reportFilename,
+      "-P", newPropertyFile.toString
+    )
     cmdBase ++ odcConfig.extraArgs
   }
 
@@ -223,7 +271,11 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
     try {
       f(tmpDir)
     } finally {
-      rmdir(tmpDir)
+      if(odcConfig.cleanTmpDir){
+        rmdir(tmpDir)
+      }else{
+        Logger.info(s"tmpdir for the scan: $tmpDir")
+      }
     }
   }
 

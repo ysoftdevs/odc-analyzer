@@ -72,6 +72,13 @@ class LibraryAdvisor @Inject() (
               case _ =>
                 Right("Unknown path for mvnrepository.com: Expected https://mvnrepository.com/artifact/<groupId>/<artifactId>/<version>")
             }
+          case "www.nuget.org" | "preview.nuget.org" =>
+            // https://www.nuget.org/packages/Newtonsoft.Json/9.0.1
+            url.getPath.split('/') match {
+              case Array("", "packages", packageName, version) => Left(odcService.scanDotNet(packageName, version))
+              case _ => Right("Unknown path for nuget.org: Expected https://www.nuget.org/packages/<package>/<version>")
+            }
+          case otherHost => Right(s"Unknown host – there is no rule how to get library identification from its path: $otherHost")
         }
       }
     }
@@ -81,7 +88,8 @@ class LibraryAdvisor @Inject() (
     withOdc{ odcService =>
       Future.successful(Ok(views.html.libraryAdvisor.scanLibrary(dependency, Seq(
         Html("&lt;dependency>…&lt;/dependency> – Maven POM format"),
-        Html("https://mvnrepository.com/artifact/<i>groupId</i>/<i>artifactId</i>/<i>version</i>")
+        Html("https://mvnrepository.com/artifact/<i>groupId</i>/<i>artifactId</i>/<i>version</i>"),
+        Html("https://www.nuget.org/packages/<i>package</i>/<i>version</i>")
       ))))
     }
   }
