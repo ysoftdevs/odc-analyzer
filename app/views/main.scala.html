@@ -46,13 +46,26 @@
             <ul class="nav navbar-nav">
                 @filter = @{projectsOption.flatMap(_._1.selectorString)}
                 <li><a href="@routes.Statistics.vulnerableLibraries(filter)">Vulnerable libraries</a></li>
-                <li><a href="@routes.Statistics.vulnerabilities(filter, None)">Vulnerabilities</a></li>
+                <li>
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" data-target="#vulnlibs-dropdown"><span class="caret"></span></a>
+                    <div class="dropdown" id="vulnlibs-dropdown">
+                        <ul class="dropdown-menu">
+                            <li><a href="@routes.Statistics.vulnerabilities(filter, None)">Vulnerabilities</a></li>
+                        </ul>
+                    </div>
+                </li>
                 <li><a href="@routes.LibraryAdvisor.index()">Scan library</a></li>
                 <li><a href="@routes.Notifications.listProjects(filter)">Notifications</a></li>
-                <li><a href="#" data-toggle="collapse" data-target=".extended-menu">…</a></li>
-                <li class="collapse extended-menu"><a href="@routes.Application.index(Map())">Status</a></li>
-                <li class="collapse extended-menu"><a href="@routes.Application.dependencies(None)">Tags</a></li>
-                <li class="collapse extended-menu"><a href="@routes.Statistics.basic(filter)">Tag statistics</a></li>
+                <li>
+                    <a href="#" data-toggle="dropdown" data-target="#extended-menu">…</a>
+                    <div id="extended-menu" class="dropdown" id="vulnlibs-dropdown">
+                        <ul class="dropdown-menu">
+                            <li><a href="@routes.Application.index(Map())">Status</a></li>
+                            <li><a href="@routes.Application.dependencies(None)">Tags</a></li>
+                            <li><a href="@routes.Statistics.basic(filter)">Tag statistics</a></li>
+                        </ul>
+                    </div>
+                </li>
                 <li>
                     @for((ProjectsWithSelection(filter, projects, teams), link) <- projectsOption){
                         <div id="project-selector">
