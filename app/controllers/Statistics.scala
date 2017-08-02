@@ -319,8 +319,9 @@ class Statistics @Inject()(
         Future.successful(Ok(views.html.dependencyDetailsInner(
           depPrefix = depPrefix,
           dep = selection.result.groupedDependenciesByHashes(depId),
-          selectorOption = selectorOption)
-        ).withHeaders("Content-type" -> "text/plain; charset=utf-8"))
+          selectorOption = selectorOption,
+          showAffectedProjects = true
+        )).withHeaders("Content-type" -> "text/plain; charset=utf-8"))
       }
     }
   }

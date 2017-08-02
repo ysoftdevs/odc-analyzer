@@ -1,4 +1,4 @@
-@(depPrefix: String, dep: GroupedDependency, selectorOption: Option[String], showAffectedProjects: Boolean = false, expandVulnerabilities: Boolean = false, vulnerabilitySearch: Boolean = true)
+@(depPrefix: String, dep: GroupedDependency, selectorOption: Option[String], showAffectedProjects: Boolean, expandVulnerabilities: Boolean = false, vulnerabilitySearch: Boolean = true)
 
 @if(vulnerabilitySearch){
     @vulnerableSoftwareSearches(dep) match {
