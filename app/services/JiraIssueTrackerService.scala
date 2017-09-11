@@ -46,13 +46,14 @@ object JiraIssueTrackerService {
 class JiraIssueTrackerService @Inject()(absolutizer: Absolutizer, @Named("jira-server") server: String, noRelevantProjectAffectedTransitionNameOption: Option[String], newProjectAddedTransitionNameOption: Option[String], fields: Fields, @Named("jira-project-id") projectId: Int, @Named("jira-vulnerability-issue-type") vulnerabilityIssueType: Int, ticketFormatVersion: Int, @Named("jira-authentication") atlassianAuthentication: AtlassianAuthentication)(implicit executionContext: ExecutionContext, wSClient: WSClient) extends IssueTrackerService{
   private def jiraUrl(url: String) = atlassianAuthentication.addAuth(WS.clientUrl(url))
   private def api(endpoint: String) = jiraUrl(server+"/rest/api/2/"+endpoint)
+  private val throttler = new SingleFutureExecutionThrottler()
 
   private implicit val TransitionFormats = Json.format[Transition]
   private implicit val TransitionsFormats = Json.format[Transitions]
 
-  override def reportVulnerability(vulnerability: Vulnerability, projects: Set[ReportInfo]): Future[ExportedVulnerability[String]] = api("issue").post(Json.obj(
+  override def reportVulnerability(vulnerability: Vulnerability, projects: Set[ReportInfo]): Future[ExportedVulnerability[String]] = throttler.throttle(api("issue").post(Json.obj(
     "fields" -> (extractInitialFields(vulnerability) ++ extractManagedFields(vulnerability, projects))
-  )).map(response => // returns responses like {"id":"1234","key":"PROJ-6","self":"https://…/rest/api/2/issue/1234"}
+  ))).map(response => // returns responses like {"id":"1234","key":"PROJ-6","self":"https://…/rest/api/2/issue/1234"}
     try{
       val issueInfo = Json.reads[JiraNewIssueResponse].reads(response.json).get
       ExportedVulnerability(vulnerabilityName = vulnerability.name, ticket = issueInfo.key, ticketFormatVersion = ticketFormatVersion, done = false)
@@ -87,19 +88,19 @@ class JiraIssueTrackerService @Inject()(absolutizer: Absolutizer, @Named("jira-s
       case SetDiff.Selection.None => sys.error("this should not happpen")
     }
     val transitionOptionFuture = requiredTransitionOption.map{ requiredTransition =>
-      api(s"issue/$ticket/transitions").get().requireSuccess.map{resp =>
+      throttler.throttle(api(s"issue/$ticket/transitions").get()).requireSuccess.map{resp =>
         resp.json.validate[Transitions].recover{case e => sys.error(s"Bad JSON: "+e+"\n\n"+resp.json)}.get.transitions.filter(_.name == requiredTransition) match {
           case Seq() => None
           case Seq(i) => Some(i)
         }
       }
     }.getOrElse(Future.successful(None))
-    val fieldsUpdateResult = api(s"issue/$ticket").put(obj(
+    val fieldsUpdateResult = throttler.throttle(api(s"issue/$ticket").put(obj(
       "fields" -> extractManagedFields(vuln, diff.newSet)
-    )).requireStatus(204).map{ resp => () }
+    ))).requireStatus(204).map{ resp => () }
     fieldsUpdateResult.flatMap { (_: Unit) =>
       transitionOptionFuture flatMap {
-        case Some(transition) => api(s"issue/$ticket/transitions").post(obj("transition" -> obj("id" -> transition.id))).requireStatus(204).map{resp =>()}
+        case Some(transition) => throttler.throttle(api(s"issue/$ticket/transitions").post(obj("transition" -> obj("id" -> transition.id)))).requireStatus(204).map{resp =>()}
         case None => Future.successful(())
       }
     }
