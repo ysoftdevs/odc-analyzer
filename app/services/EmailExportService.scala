@@ -79,7 +79,7 @@ class EmailExportService(from: String, nobodyInterestedContact: String, val expo
   def emailDigest(subscriber: LoginInfo, changes: Seq[Change], projects: ProjectsWithReports): Future[Email] = {
     val vulnNames = changes.map(_.vulnerabilityName).toSet
     for {
-      vulns <- Future.traverse(vulnNames.toSeq)(name => odcService.getVulnerabilityDetails(name).map(v => name -> v.get)).map(_.toMap)
+      vulns <- Future.traverse(vulnNames.toSeq)(name => odcService.getVulnerabilityDetails(name).map(v => name -> v.getOrElse(throw new NoSuchElementException(s"Vulnerability details for '$name' not found.")))).map(_.toMap)
       groups = changes.groupBy(_.direction).withDefaultValue(Seq())
     } yield {
       val changesMarks = Map(Direction.Added -> "❢", Direction.Removed -> "☑")
