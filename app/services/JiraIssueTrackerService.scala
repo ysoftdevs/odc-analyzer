@@ -110,7 +110,7 @@ class JiraIssueTrackerService @Inject()(absolutizer: Absolutizer, @Named("jira-s
     "project" -> Json.obj(
       "id" -> projectId.toString
     ),
-    "summary" -> s"${vulnerability.name} – ${vulnerability.cweOption.map(_ + ": ").getOrElse("")}${vulnerability.description.take(50)}…"
+    "summary" -> s"${vulnerability.name} – ${vulnerability.cweOption.map(_ + ": ").getOrElse("")}${vulnerability.description.take(50).takeWhile(c => c != '\n' && c != '\r')}…"
   )
 
   private def extractManagedFields(vulnerability: Vulnerability, projects: Set[ReportInfo]): JsObject = {
