@@ -8,13 +8,13 @@
     // It also seems to be related to some compiler cache. It is somehow possible to compile it by incremental compilation and some code changes, but
     // clean build deterministically fails at the second expression.
     // So, making the implicit explicit is a workaround for this issue.
-    Ordering.Tuple4[Confidence.Value, String, String, String]
+    Ordering.Tuple5[Confidence.Value, Boolean, String, String, String]
 }
 
 @if(!dep.identifiers.exists(_.confidence >= Confidence.High)){
     <span class="badge">file: @dep.fileNames.toSeq.sorted.mkString(", ")@if(addButtons){<span class="btn-xs library-identification-badge-hack">&nbsp;</span>}</span>
 }
-@for(id <- dep.identifiers.toSeq.sortBy(i => (i.confidence, i.identifierType, i.name, i.url)).reverse){
+@for(id <- dep.identifiers.toSeq.sortBy(i => (i.confidence, i.identifierType == "cpe", i.identifierType, i.name, i.url)).reverse){
     <span class="badge">
         @identifier(id, addLink)
         @for(cpe <- id.toCpeIdentifierOption; suppressionXmlId <- suppressionXmlIdOption; if addButtons){
@@ -23,6 +23,6 @@
         @if(addButtons && suppressionXmlIdOption.isDefined){<span class="btn-xs library-identification-badge-hack">&nbsp;</span>}
     </span>
 }
-@for(id <- dep.suppressedIdentifiers.toSeq.sortBy(i => (i.confidence, i.identifierType, i.name, i.url)).reverse){
+@for(id <- dep.suppressedIdentifiers.toSeq.sortBy(i => (i.confidence, i.identifierType == "cpe", i.identifierType, i.name, i.url)).reverse){
     <span class="badge"><del>@identifier(id, addLink)</del></span>
 }
