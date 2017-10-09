@@ -250,3 +250,18 @@ h3.library-identification{
 #scan-results{
     margin-top: 64px;
 }
+.confidence{
+    border: 1px solid grey;
+    color: grey;
+    height: 1.5em;
+    width: 1.5em;
+    vertical-align: middle;
+    text-align: center;
+    display: inline-block;
+    border-radius: 1em;
+    margin-right: 5px;
+}
+.confidence .fa{
+    position: relative;
+    top: -0.5ex;
+}

@@ -1,2 +1,4 @@
+@import com.ysoft.odc.Confidence
 @(identifier: Identifier, addLink: Boolean = true)
-@secureLink(if(addLink) identifier.url else ""){<span class="identifier identifier-@identifier.confidence.toString.toLowerCase" data-confidence="@identifier.confidence.toString.toLowerCase" data-type="@identifier.identifierType">@identifier.name</span>}
+@secureLink(if(addLink) identifier.url else ""){
+    <span class="identifier identifier-@identifier.confidence.toString.toLowerCase" data-confidence="@identifier.confidence.toString.toLowerCase" data-type="@identifier.identifierType">@confidence(identifier.confidence)@identifier.name</span>}

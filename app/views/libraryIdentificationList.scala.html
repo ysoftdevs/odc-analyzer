@@ -16,7 +16,7 @@
 }
 <ul>
 @if(!dep.identifiers.exists(_.confidence >= Confidence.High)){
-    <li><span class="identifier identifier-file" data-type="file" data-confidence="highest">@dep.fileNames.toSeq.sorted.mkString(", ")@if(addButtons){<span class="btn-xs library-identification-badge-hack">&nbsp;</span>}</span></li>
+    <li><span class="identifier identifier-file" data-type="file" data-confidence="highest">@confidence(Confidence.Highest)@dep.fileNames.toSeq.sorted.mkString(", ")@if(addButtons){<span class="btn-xs library-identification-badge-hack">&nbsp;</span>}</span></li>
 }
 @for(id <- cleanIdentifiers(dep.identifiers).toSeq.sortBy(i => (i.confidence, i.identifierType == "cpe", i.identifierType, i.name, i.url)).reverse){
     <li>
