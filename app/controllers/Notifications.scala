@@ -6,7 +6,7 @@ import javax.inject.Inject
 import com.ysoft.concurrent.FutureLock._
 import com.ysoft.odc.statistics.{FailedProjects, LibDepStatistics}
 import com.ysoft.odc.{Absolutizer, ArtifactFile, ArtifactItem, SetDiff}
-import models.{EmailMessageId, ExportedVulnerability}
+import models.{EmailMessageId, ExportedVulnerability, StandardVulnerabilityOverview, VulnerabilityOverview}
 import modules.TemplateCustomization
 import play.api.i18n.MessagesApi
 import play.api.libs.Crypto
@@ -59,7 +59,7 @@ class Notifications @Inject()(
   )(
     reportVulnerability: (Vulnerability, Set[GroupedDependency]) => Future[ExportedVulnerability[T]]
   )(
-    reportChangedProjectsForVulnerability: (Vulnerability, SetDiff[String], T) => Future[Unit]
+    reportChangedProjectsForVulnerability: (VulnerabilityOverview, SetDiff[String], T) => Future[Unit]
   ) = {
     val vulnerabilitiesByName = lds.vulnerabilitiesToDependencies.map{case (v, deps) => (v.name, (v, deps))}
     for{
@@ -82,7 +82,7 @@ class Notifications @Inject()(
         if(diff.nonEmpty) {
           for{
             // Try to load vuln from memory; If the vuln has disappeared, we have to load it from DB.
-            vulnerability <- lds.vulnerabilitiesByName.get(vulnerabilityName).fold(odcService.getVulnerabilityDetails(vulnerabilityName).map(_.get))(Future(_))
+            vulnerability <- lds.vulnerabilitiesByName.get(vulnerabilityName).fold(odcService.getVulnerabilityDescription(vulnerabilityName))(x => Future(new StandardVulnerabilityOverview(x)))
             (_: Unit) <- reportChangedProjectsForVulnerability(vulnerability, diff, exportedVulnerability.ticket)
             (_: Unit) <- ep.changeProjects(ticketId, diff, projects)
           } yield Some(diff)

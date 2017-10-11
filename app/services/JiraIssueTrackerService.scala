@@ -5,7 +5,7 @@ import javax.inject.Inject
 import com.google.inject.name.Named
 import com.ysoft.odc.{Absolutizer, AtlassianAuthentication, SetDiff}
 import controllers.{ReportInfo, Vulnerability, friendlyProjectNameString, routes}
-import models.ExportedVulnerability
+import models.{ExportedVulnerability, StandardVulnerabilityOverview, VulnerabilityOverview}
 import play.api.Logger
 import play.api.libs.json.Json.JsValueWrapper
 import play.api.libs.json._
@@ -52,7 +52,7 @@ class JiraIssueTrackerService @Inject()(absolutizer: Absolutizer, @Named("jira-s
   private implicit val TransitionsFormats = Json.format[Transitions]
 
   override def reportVulnerability(vulnerability: Vulnerability, projects: Set[ReportInfo]): Future[ExportedVulnerability[String]] = throttler.throttle(api("issue").post(Json.obj(
-    "fields" -> (extractInitialFields(vulnerability) ++ extractManagedFields(vulnerability, projects))
+    "fields" -> (extractInitialFields(vulnerability) ++ extractManagedFields(new StandardVulnerabilityOverview(vulnerability), projects, requiresDescription = true))
   ))).map(response => // returns responses like {"id":"1234","key":"PROJ-6","self":"https://…/rest/api/2/issue/1234"}
     try{
       val issueInfo = Json.reads[JiraNewIssueResponse].reads(response.json).get
@@ -81,7 +81,7 @@ class JiraIssueTrackerService @Inject()(absolutizer: Absolutizer, @Named("jira-s
     }
   }
 
-  override def updateVulnerability(vuln: Vulnerability, diff: SetDiff[ReportInfo], ticket: String): Future[Unit] = {
+  override def updateVulnerability(vuln: VulnerabilityOverview, diff: SetDiff[ReportInfo], ticket: String): Future[Unit] = {
     val requiredTransitionOption = diff.whichNonEmpty match {
       case SetDiff.Selection.Old => noRelevantProjectAffectedTransitionNameOption
       case SetDiff.Selection.New | SetDiff.Selection.Both => newProjectAddedTransitionNameOption
@@ -96,7 +96,7 @@ class JiraIssueTrackerService @Inject()(absolutizer: Absolutizer, @Named("jira-s
       }
     }.getOrElse(Future.successful(None))
     val fieldsUpdateResult = throttler.throttle(api(s"issue/$ticket").put(obj(
-      "fields" -> extractManagedFields(vuln, diff.newSet)
+      "fields" -> extractManagedFields(vuln, diff.newSet, requiresDescription = false)
     ))).requireStatus(204).map{ resp => () }
     fieldsUpdateResult.flatMap { (_: Unit) =>
       transitionOptionFuture flatMap {
@@ -113,13 +113,13 @@ class JiraIssueTrackerService @Inject()(absolutizer: Absolutizer, @Named("jira-s
     "summary" -> s"${vulnerability.name} – ${vulnerability.cweOption.map(_ + ": ").getOrElse("")}${vulnerability.description.take(50).takeWhile(c => c != '\n' && c != '\r')}…"
   )
 
-  private def extractManagedFields(vulnerability: Vulnerability, projects: Set[ReportInfo]): JsObject = {
+  private def extractManagedFields(vulnerability: VulnerabilityOverview, projects: Set[ReportInfo], requiresDescription: Boolean): JsObject = {
     val base = Json.obj(
       "issuetype" -> Json.obj(
         "id" -> vulnerabilityIssueType.toString
-      ),
-      "description" -> extractDescription(vulnerability)
+      )
     )
+    val descriptionObj = if(requiresDescription || vulnerability.isSureAboutDescription) Json.obj("description" -> extractDescription(vulnerability)) else Json.obj()
     val additionalFields = Seq[Option[(String, JsValueWrapper)]](
       fields.cweId.map(id => id -> vulnerability.cweOption.fold("")(_.brief)),
       fields.linkId.map(id => id -> link(vulnerability)),
@@ -129,7 +129,7 @@ class JiraIssueTrackerService @Inject()(absolutizer: Absolutizer, @Named("jira-s
     )
     val additionalObj = Json.obj(additionalFields.flatten : _*)
     val constantObj = fields.constantFields.getOrElse(Json.obj())
-    base ++ additionalObj ++ constantObj
+    base ++ descriptionObj ++ additionalObj ++ constantObj
   }
 
 
@@ -137,9 +137,9 @@ class JiraIssueTrackerService @Inject()(absolutizer: Absolutizer, @Named("jira-s
 
   }*/
 
-  private def extractDescription(vulnerability: Vulnerability): String = vulnerability.description + "\n\n" + s"Details: ${link(vulnerability)}"
+  private def extractDescription(vulnerability: VulnerabilityOverview): String = vulnerability.descriptionAttempt + "\n\n" + s"Details: ${link(vulnerability)}"
 
-  private def link(vulnerability: Vulnerability): String = {
+  private def link(vulnerability: VulnerabilityOverview): String = {
     absolutizer.absolutize(routes.Statistics.vulnerability(vulnerability.name, None))
   }
 

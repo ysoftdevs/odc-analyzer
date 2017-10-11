@@ -10,6 +10,7 @@ import _root_.org.owasp.dependencycheck.utils.{DependencyVersion, DependencyVers
 import com.github.nscala_time.time.Imports._
 import com.google.inject.Inject
 import com.mockrunner.mock.jdbc.MockConnection
+import models.VulnerabilityOverview
 import models.odc.tables._
 import models.odc.{OdcProperty, Vulnerabilities}
 import play.api.Logger
@@ -35,6 +36,8 @@ class OdcDbService @Inject()(@NamedDatabase("odc") protected val dbConfigProvide
   def getVulnerabilityDetails(id: Int): Future[Option[com.ysoft.odc.Vulnerability]] = getVulnerabilityDetails(_.id === id)
 
   def getVulnerabilityDetails(name: String): Future[Option[com.ysoft.odc.Vulnerability]] = getVulnerabilityDetails(_.cve === name)
+
+  def getVulnerabilityDescription(name: String): Future[VulnerabilityOverview] = getVulnerabilityDetails(name).map(VulnerabilityOverview(name, _))
 
   private def getVulnerabilityDetails(cond: Vulnerabilities => Rep[Boolean]): Future[Option[com.ysoft.odc.Vulnerability]] = {
     db.run(vulnerabilities.filter(cond).result).map(_.headOption) flatMap { bareVulnOption =>
