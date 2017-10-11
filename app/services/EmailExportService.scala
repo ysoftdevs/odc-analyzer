@@ -17,11 +17,51 @@ import scala.concurrent.{ExecutionContext, Future}
 object EmailExportType extends Enumeration {
   val Vulnerabilities = Value("vulnerabilities")
   val Digest = Value("digest")
+
+
+}
+object EmailExportService {
+
+  private object VulnerabilityDescription{
+    def apply(name: String, v: Option[Vulnerability]): VulnerabilityDescription = v.fold(UnknownVulnerabilityDescription(name))(new StandardVulnerabilityDescription(_))
+  }
+
+  private abstract class VulnerabilityDescription {
+    def name: String
+    def description: String
+    def cvssScore: Option[Double]
+  }
+
+  private final class StandardVulnerabilityDescription(vulnerability: Vulnerability) extends VulnerabilityDescription {
+    override def name: String = vulnerability.name
+    override def description: String = vulnerability.description
+    override def cvssScore: Option[Double] = vulnerability.cvssScore
+  }
+
+  private final class UnknownVulnerabilityDescription(override val name: String, link: String) extends VulnerabilityDescription {
+    override def description: String = s"Unknown vulnerability. Try looking at the following address for more details: $link"
+    override def cvssScore: Option[Double] = None
+  }
+
+  private final class TotallyUnknownVulnerabilityDescription(override val name: String) extends VulnerabilityDescription {
+    override def description: String = s"Unknown vulnerability. Not even sure where to look for other details. Maybe Googling the identifier will help."
+    override def cvssScore: Option[Double] = None
+  }
+
+  private object UnknownVulnerabilityDescription {
+    def apply(name: String): VulnerabilityDescription = name match {
+      case cveId if name startsWith "CVE-" => new UnknownVulnerabilityDescription(name, s"https://nvd.nist.gov/vuln/detail/$cveId")
+      case ossIndexId if name startsWith "OSSINDEX-" => new UnknownVulnerabilityDescription(name, s"https://ossindex.net/resource/vulnerability/$ossIndexId")
+      case other => new TotallyUnknownVulnerabilityDescription(other)
+    }
+  }
+
 }
 
 class EmailExportService(from: String, nobodyInterestedContact: String, val exportType: EmailExportType.Value, odcService: OdcDbService, mailerClient: MailerClient, notificationService: VulnerabilityNotificationService, emailSendingExecutionContext: ExecutionContext, absolutizer: Absolutizer)(implicit executionContext: ExecutionContext) {
   // Maybe it is not the best place for exportType, but I am not sure if we want this to be configurable. If no, then we can get rid of it. If yes, we should refactor it.
 
+  import EmailExportService.VulnerabilityDescription
 
   private def getEmail(loginInfo: LoginInfo) = loginInfo.providerKey // TODO: get the email in a cleaner way
 
@@ -79,7 +119,7 @@ class EmailExportService(from: String, nobodyInterestedContact: String, val expo
   def emailDigest(subscriber: LoginInfo, changes: Seq[Change], projects: ProjectsWithReports): Future[Email] = {
     val vulnNames = changes.map(_.vulnerabilityName).toSet
     for {
-      vulns <- Future.traverse(vulnNames.toSeq)(name => odcService.getVulnerabilityDetails(name).map(v => name -> v.getOrElse(throw new NoSuchElementException(s"Vulnerability details for '$name' not found.")))).map(_.toMap)
+      vulns <- Future.traverse(vulnNames.toSeq)(name => odcService.getVulnerabilityDetails(name).map(v => name -> VulnerabilityDescription(name, v))).map(_.toMap)
       groups = changes.groupBy(_.direction).withDefaultValue(Seq())
     } yield {
       val changesMarks = Map(Direction.Added -> "❢", Direction.Removed -> "☑")
@@ -91,7 +131,7 @@ class EmailExportService(from: String, nobodyInterestedContact: String, val expo
         text = "more info: "+link,
         html = Html("<a href=\""+HtmlFormat.escape(link)+"\">more info</a>")
       )
-      def vulnerabilityText(change: Change, vulnerability: Vulnerability): HtmlWithText = (
+      def vulnerabilityText(change: Change, vulnerability: VulnerabilityDescription): HtmlWithText = (
         heading(4)(s"${changesMarks(change.direction)} ${vulnerability.name}${vulnerability.cvssScore.fold("")(sev => s" (CVSS severity: $sev)")}")
         + justHtml("<p>") + plainText(vulnerability.description) + justHtml("<br>") + justText("\n")
         + moreInfo(absolutizer.absolutize(routes.Statistics.vulnerability(vulnerability.name, None))) + justHtml("</p>")
