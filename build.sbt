@@ -52,8 +52,6 @@ libraryDependencies += "org.webjars" % "jquery" % "2.1.4"
 
 libraryDependencies += "org.webjars" % "bootstrap-datepicker" % "1.4.0"
 
-libraryDependencies += "org.webjars" % "font-awesome" % "4.7.0"
-
 libraryDependencies += "org.webjars" % "tablesorter" % "2.17.8"
 
 libraryDependencies += "org.webjars.bower" % "StickyTableHeaders" % "0.1.17"
