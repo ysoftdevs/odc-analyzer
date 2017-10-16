@@ -265,3 +265,9 @@ h3.library-identification{
     position: relative;
     top: -0.5ex;
 }
+.identifier-low{
+    color: gray;
+}
+.identifier-high, .identifier-file, .identifier-highest{
+    background-color: #dddddd;
+}
