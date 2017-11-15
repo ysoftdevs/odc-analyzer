@@ -174,7 +174,7 @@ class Notifications @Inject()(
     notifyVulnerabilities[String](lds, failedProjects, notificationService.diffDbExport, p){ (vulnerability, dependencies) =>
       //?save_new_vulnerability
       val affectedProjects = dependencies.flatMap(_.projects)
-      val diff = new SetDiff(Set(), affectedProjects)
+      val diff = new SetDiff(Set(), affectedProjects) // When reporting a new vulnerability, the list of originally affected projects is empty.
       notificationService.changeAffectedProjects(vulnerability.name, diff.map(_.fullId)).map{_ =>
         ExportedVulnerability[String](vulnerabilityName = vulnerability.name, ticket = vulnerability.name, ticketFormatVersion = 0, done = false)
       }
