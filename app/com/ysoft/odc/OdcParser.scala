@@ -117,6 +117,7 @@ final case class GroupedDependency(dependencies: Map[Dependency, Set[ReportInfo]
   def evidenceCollected: Set[Evidence] = dependencies.keySet.flatMap(_.evidenceCollected)
   def suppressedIdentifiers: Set[Identifier] = dependencies.keySet.flatMap(_.suppressedIdentifiers)
   def mavenIdentifiers = identifiers.filter(_.identifierType == "maven")
+  def nugetIdentifiers = identifiers.filter(_.identifierType == "nuget")
   def cpeIdentifiers = identifiers.filter(_.identifierType == "cpe")
   def vulnerabilities: Set[Vulnerability] = dependencies.keySet.flatMap(_.vulnerabilities)
   def suppressedVulnerabilities: Set[Vulnerability] = dependencies.keySet.flatMap(_.suppressedVulnerabilities)

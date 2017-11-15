@@ -58,7 +58,12 @@ package object controllers {
       val identifierString = <dependency><groupId>{groupId}</groupId><artifactId>{artifactId}</artifactId><version>{version}</version></dependency>.toString()
       routes.LibraryAdvisor.index(Some(identifierString)) -> s"Look for Maven dependency $mavenIdentifier"
     }
-    mavenSearches ++ legacySearchOption
+    val nugetSearches = groupedDependency.nugetIdentifiers.map(_.name).toSeq.sorted.map{mavenIdentifier =>
+      val Array(name, version) = mavenIdentifier.split(":", 2)
+      val identifierString = s"https://www.nuget.org/packages/$name/$version"
+      routes.LibraryAdvisor.index(Some(identifierString)) -> s"Look for NuGet package $mavenIdentifier"
+    }
+    nugetSearches ++ mavenSearches ++ legacySearchOption
 
   }
 
