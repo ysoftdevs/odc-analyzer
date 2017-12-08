@@ -38,7 +38,8 @@ object ReportsFactory{
       license = "something",
       vulnerabilities = Seq(),
       suppressedVulnerabilities = Seq(),
-      relatedDependencies = Seq()
+      relatedDependencies = Seq(),
+      isVirtual = false
     )
   }
 

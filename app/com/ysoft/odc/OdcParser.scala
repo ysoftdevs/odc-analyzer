@@ -5,9 +5,18 @@ import com.ysoft.memory.ObjectPool
 import com.ysoft.odc.Confidence.Confidence
 import controllers.ReportInfo
 import models.{LibraryType, PlainLibraryIdentifier}
+import RichNode.toRichNode
 
 import scala.xml._
 
+final case class RichNode (node: Node) extends AnyVal {
+  def boolAttribute(name: String): Option[Boolean] = node.attribute(name).map(_.text).map(Map("true"->true, "false"->false))
+}
+object RichNode{
+
+  implicit def toRichNode(node: Node) = RichNode(node)
+
+}
 
 final case class SerializableXml private (xmlString: String) extends Serializable{
   def xml = SecureXml.loadString(xmlString) // TODO: cache
@@ -72,7 +81,8 @@ final case class Dependency(
   license: String,
   vulnerabilities: Seq[Vulnerability],
   suppressedVulnerabilities: Seq[Vulnerability],
-  relatedDependencies: Seq[RelatedDependency]
+  relatedDependencies: Seq[RelatedDependency],
+  isVirtual: Boolean
 ) extends AbstractDependency {
 
   def hashes = Hashes(sha1 = sha1, md5 = md5)
@@ -258,7 +268,7 @@ object OdcParser {
     }
     vulnerableSoftwarePool(VulnerableSoftware(
       name = node.text,
-      allPreviousVersion = node.attribute("allPreviousVersion").map(_.text).map(Map("true"->true, "false"->false)).getOrElse(false)
+      allPreviousVersion = node.boolAttribute("allPreviousVersion").getOrElse(false)
     ))
   }
 
@@ -333,7 +343,7 @@ object OdcParser {
 
   def parseDependency(node: Node): Dependency = {
     checkElements(node, Set("fileName", "filePath", "md5", "sha1", "description", "evidenceCollected", "identifiers", "license", "vulnerabilities", "relatedDependencies"))
-    checkParams(node, Set())
+    checkParams(node, Set("isVirtual"))
     val (vulnerabilities: Seq[Node], suppressedVulnerabilities: Seq[Node]) = (node \ "vulnerabilities").headOption.map(filterWhitespace).getOrElse(Seq()).partition(_.label == "vulnerability")
     val (identifiers, suppressedIdentifiers) = (node \ "identifiers").headOption.map(filterWhitespace).getOrElse(Seq()).partition(_.label == "identifier")
     dependencyPool(Dependency(
@@ -348,7 +358,8 @@ object OdcParser {
       license = (node \ "license").text,
       vulnerabilities = vulnerabilities.map(parseVulnerability(_)),
       suppressedVulnerabilities = suppressedVulnerabilities.map(parseVulnerability(_, "suppressedVulnerability")),
-      relatedDependencies = (node \ "relatedDependencies" \ "relatedDependency").map(parseRelatedDependency)
+      relatedDependencies = (node \ "relatedDependencies" \ "relatedDependency").map(parseRelatedDependency),
+      isVirtual = node.boolAttribute("isVirtual").getOrElse(false)
     ))
   }
 

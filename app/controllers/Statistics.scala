@@ -401,13 +401,15 @@ class Statistics @Inject()(
     val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
     resultsFuture flatMap { allResults =>
       select(allResults, Some("project:"+req.body.plan)).fold(Future.successful(NotFound(Json.obj("error"->"not found")))) { selection =>
+        if(selection.result.failedProjects.nonEmpty){
+          throw new RuntimeException("Cannot compare, because the previous analysis has failed")
+        }
         reportMapFuture.map {reportMap =>
           def extractVulnerabilities(r: Result) = {
             r.vulnerableDependencies.flatMap(_.vulnerabilities.map(_.name)).toSet
           }
           val adHocReports = DependencyCheckReportsParser.forAdHocScans(reportMap)
           def compare[T](f: Result => Set[T]) = new SetDiff(f(selection.result), f(adHocReports))
-          //adHocReports.dep
           Ok(Json.obj(
             "vulnerabilities"->showDiff(compare(extractVulnerabilities)),
             "dependencies"->showDiff(compare(_.groupedDependencies.map(GroupedDependencyIdentifier.fromGroupedDependency).toSet))
