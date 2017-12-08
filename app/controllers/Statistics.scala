@@ -43,7 +43,17 @@ object GroupedDependencyDetailedIdentifier{
     evidence = groupedDependency.evidenceCollected.toIndexedSeq.sortBy(e => (e.name, e.value)),
     fileNames = groupedDependency.fileNames.toIndexedSeq.sortBy(_.toLowerCase)
   )
+}
 
+final case class GroupedVulnerableDependencyDetailedIdentifier(hashes: Hashes, identifiers: Seq[Identifier], fileNames: Seq[String], vulnerabilities: Seq[String])
+
+object GroupedVulnerableDependencyDetailedIdentifier{
+  def fromGroupedDependency(groupedDependency: GroupedDependency) = GroupedVulnerableDependencyDetailedIdentifier(
+    hashes = groupedDependency.hashes,
+    identifiers = groupedDependency.identifiers.toIndexedSeq.sortBy(_.name),
+    fileNames = groupedDependency.fileNames.toIndexedSeq.sortBy(_.toLowerCase),
+    vulnerabilities = groupedDependency.vulnerabilities.toSeq.map(_.name).sorted
+  )
 }
 
 object Statistics{
@@ -58,6 +68,7 @@ object Statistics{
   implicit val groupedDependencyIdentifierWrites = Json.writes[GroupedDependencyIdentifier]
   implicit val groupedDependencyDetailedIdentifierWrites = Json.writes[GroupedDependencyDetailedIdentifier]
   //implicit val groupedDependencyFormats = Json.format[GroupedDependency]
+  implicit val GroupedVulnerableDependencyDetailedIdentifierWrites = Json.writes[GroupedVulnerableDependencyDetailedIdentifier]
 
 }
 
@@ -391,7 +402,12 @@ class Statistics @Inject()(
   private implicit val compareScanRequestFormats = Json.format[CompareScanRequest]
 
   def showSet[T: Writes](set: Set[T]) = JsArray(set.toSeq.map(implicitly[Writes[T]].writes))
-  def showDiff[T: Writes](diff: SetDiff[T]) = Json.obj("added" -> showSet(diff.added), "removed" -> showSet(diff.removed), "old"->showSet(diff.oldSet), "new"->showSet(diff.newSet))
+  def showDiff[T: Writes, A: Writes, R: Writes](diff: SetDiff[T])(mapAdded: T=>A=identity[T] _, mapRemoved: T=>R=identity[T] _) = Json.obj(
+    "added" -> showSet(diff.added.map(mapAdded)),
+    "removed" -> showSet(diff.removed.map(mapRemoved))
+    //"old"->showSet(diff.oldSet),
+    //"new"->showSet(diff.newSet)
+  )
 
   def compareScan() = ApiAction(ScanResults).async(parse.json[CompareScanRequest]){ implicit req =>
     val unparsedReports = req.body.reports
@@ -411,8 +427,12 @@ class Statistics @Inject()(
           val adHocReports = DependencyCheckReportsParser.forAdHocScans(reportMap)
           def compare[T](f: Result => Set[T]) = new SetDiff(f(selection.result), f(adHocReports))
           Ok(Json.obj(
-            "vulnerabilities"->showDiff(compare(extractVulnerabilities)),
-            "dependencies"->showDiff(compare(_.groupedDependencies.map(GroupedDependencyDetailedIdentifier.fromGroupedDependency).toSet))
+            "vulnerabilities"->showDiff(compare(extractVulnerabilities))(),
+            "dependencies"->showDiff(compare(_.groupedDependencies.map(GroupedDependencyDetailedIdentifier.fromGroupedDependency).toSet))(),
+            "vulnerableDependencies"->showDiff(compare(_.vulnerableDependencies.map(_.hashes).toSet))(
+              mapAdded = h => GroupedVulnerableDependencyDetailedIdentifier.fromGroupedDependency(adHocReports.groupedDependenciesByHashes(h)),
+              mapRemoved = h => GroupedVulnerableDependencyDetailedIdentifier.fromGroupedDependency(selection.result.groupedDependenciesByHashes(h))
+            )
           ))
         }
       }
