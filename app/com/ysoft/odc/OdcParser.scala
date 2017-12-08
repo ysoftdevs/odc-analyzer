@@ -387,8 +387,10 @@ object OdcParser {
 
   def parseDependencies(nodes: NodeSeq): Seq[Dependency] = nodes.map(parseDependency(_))
 
-  def parseXmlReport(data: Array[Byte]) = {
-    val xml = SecureXml.loadString(new String(data, "utf-8"))
+  def parseXmlReport(data: Array[Byte]): Analysis = parseXmlReport(new String(data, "utf-8"))
+
+  def parseXmlReport(xmlData: String): Analysis = {
+    val xml = SecureXml.loadString(xmlData)
     Analysis(
       scanInfo = SerializableXml((xml \ "scanInfo").head),
       name = (xml \ "projectInfo" \ "name").text,

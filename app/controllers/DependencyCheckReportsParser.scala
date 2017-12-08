@@ -114,6 +114,12 @@ private final case class BadFilter(pattern: String) extends Filter{
 
 object DependencyCheckReportsParser{
   def forAdHocScan(analysis: Analysis): Result = Result(Map(ReportInfo("adHocScan", "Ad hoc scan", "AHS", None) -> analysis), Map(), new ProjectsWithReports(new Projects(Map(), Map(), Map()), Set()), Map())
+  def forAdHocScans(analysises: Map[String, Analysis]): Result = Result(
+    bareFlatReports = analysises.map{case (key, analysis) => ReportInfo("adHocScan", "Ad hoc scan", "AHS:"+key, Some(key)) -> analysis},
+    bareFailedAnalysises = Map(),
+    projectsReportInfo = new ProjectsWithReports(new Projects(Map(), Map(), Map()), Set()),
+    failedReportDownloads = Map()
+  )
   final case class ResultWithSelection(result: Result, projectsWithSelection: ProjectsWithSelection)
   final case class Result(bareFlatReports: Map[ReportInfo, Analysis], bareFailedAnalysises: Map[ReportInfo, Throwable], projectsReportInfo: ProjectsWithReports/*TODO: maybe rename to rootProjects*/, failedReportDownloads: Map[ReportInfo, Throwable]){
     //lazy val projectsReportInfo = new ProjectsWithReports(projects, (bareFlatReports.keySet ++ bareFailedAnalysises.keySet ++ failedReportDownloads.keySet).map(_.fullId)) // TODO: consider renaming to projectsWithReports

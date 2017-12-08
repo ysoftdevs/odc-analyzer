@@ -6,7 +6,7 @@ import com.google.inject.name.Named
 import com.ysoft.odc.Confidence.Confidence
 import com.ysoft.odc.statistics.{LibDepStatistics, TagStatistics}
 import com.ysoft.odc._
-import controllers.DependencyCheckReportsParser.ResultWithSelection
+import controllers.DependencyCheckReportsParser.{Result, ResultWithSelection}
 import controllers.api.{ApiConfig, ApiController}
 import models.LibraryTag
 import modules.TemplateCustomization
@@ -24,6 +24,8 @@ final case class ScannedRepository(url: String, branch: String)
 final case class ScannedProject(name: String, repos: Seq[ScannedRepository], teams: Seq[String], key: String)
 
 final case class GroupedDependencyIdentifier(hashes: Hashes, identifiers: Seq[Identifier])
+
+final case class CompareScanRequest(plan: String, reports: Map[String, String])
 
 object GroupedDependencyIdentifier{
   def fromGroupedDependency(groupedDependency: GroupedDependency): GroupedDependencyIdentifier = GroupedDependencyIdentifier(
@@ -382,6 +384,35 @@ class Statistics @Inject()(
               s""""${id.identifierType}", "$g", "$a", "$v", "${id.url}" """
           }).mkString("\n")
         )))
+      }
+    }
+  }
+
+  private implicit val compareScanRequestFormats = Json.format[CompareScanRequest]
+
+  def showSet[T: Writes](set: Set[T]) = JsArray(set.toSeq.map(implicitly[Writes[T]].writes))
+  def showDiff[T: Writes](diff: SetDiff[T]) = Json.obj("added" -> showSet(diff.added), "removed" -> showSet(diff.removed), "old"->showSet(diff.oldSet), "new"->showSet(diff.newSet))
+
+  def compareScan() = ApiAction(ScanResults).async(parse.json[CompareScanRequest]){ implicit req =>
+    val unparsedReports = req.body.reports
+    val reportMapFuture = Future {
+      unparsedReports.mapValues(OdcParser.parseXmlReport).view.force
+    }
+    val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
+    resultsFuture flatMap { allResults =>
+      select(allResults, Some("project:"+req.body.plan)).fold(Future.successful(NotFound(Json.obj("error"->"not found")))) { selection =>
+        reportMapFuture.map {reportMap =>
+          def extractVulnerabilities(r: Result) = {
+            r.vulnerableDependencies.flatMap(_.vulnerabilities.map(_.name)).toSet
+          }
+          val adHocReports = DependencyCheckReportsParser.forAdHocScans(reportMap)
+          def compare[T](f: Result => Set[T]) = new SetDiff(f(selection.result), f(adHocReports))
+          //adHocReports.dep
+          Ok(Json.obj(
+            "vulnerabilities"->showDiff(compare(extractVulnerabilities)),
+            "dependencies"->showDiff(compare(_.groupedDependencies.map(GroupedDependencyIdentifier.fromGroupedDependency).toSet))
+          ))
+        }
       }
     }
   }
