@@ -412,7 +412,7 @@ class Statistics @Inject()(
           def compare[T](f: Result => Set[T]) = new SetDiff(f(selection.result), f(adHocReports))
           Ok(Json.obj(
             "vulnerabilities"->showDiff(compare(extractVulnerabilities)),
-            "dependencies"->showDiff(compare(_.groupedDependencies.map(GroupedDependencyIdentifier.fromGroupedDependency).toSet))
+            "dependencies"->showDiff(compare(_.groupedDependencies.map(GroupedDependencyDetailedIdentifier.fromGroupedDependency).toSet))
           ))
         }
       }
