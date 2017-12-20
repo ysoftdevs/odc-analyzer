@@ -7,7 +7,7 @@ import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file._
 import java.nio.file.attribute.BasicFileAttributes
 import java.sql.{Array => _}
-import java.util.{Properties, Map => JMap}
+import java.util.{Properties, UUID, Map => JMap}
 
 import _root_.org.apache.commons.lang3.SystemUtils
 import _root_.org.owasp.dependencycheck.dependency.{VulnerableSoftware => OdcVulnerableSoftware}
@@ -69,6 +69,17 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
                 </goals>
               </execution>
             </executions>
+            <dependencies>
+              {pluginFiles.map{x =>
+                <dependency>
+                  <groupId>com.ysoft</groupId>
+                  <artifactId>ad-hoc-artifact-{UUID.randomUUID().toString}</artifactId>
+                  <version>1.0-SNAPSHOT</version>
+                  <scope>system</scope>
+                  <systemPath>{x.toString}</systemPath>
+                </dependency>
+              }}
+            </dependencies>
           </plugin>
         </plugins>
       </build>
@@ -191,6 +202,8 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
     import sys.process._
     Seq(odcBin, "--version").!!.trim.reverse.takeWhile(_!=' ').reverse
   }
+
+  private def pluginFiles: Seq[File] = new File(new File(odcConfig.odcPath), "plugins").listFiles().toSeq
 
   private def createHintfulOdcCommand(scandirPrefix: String, path: Path, reportFilename: String): Seq[String] = {
     val newPropertyFile = s"${scandirPrefix}odc.properties"
