@@ -34,7 +34,17 @@ object GroupedDependencyIdentifier{
   )
 }
 
-final case class GroupedDependencyDetailedIdentifier(hashes: Hashes, identifiers: Seq[Identifier], evidence: Seq[Evidence], fileNames: Seq[String])
+final case class CanonizedGroupedDependencyDetailedIdentifier(hashes: Hashes, identifiers: Seq[Identifier], evidence: Seq[Evidence], fileNames: Seq[String]) {
+  override def hashCode(): Int = 26+hashes.hashCode()
+  override def equals(obj: scala.Any): Boolean = obj match {
+    case similar: CanonizedGroupedDependencyDetailedIdentifier => similar.hashes.equals(hashes)
+    case _ => false
+  }
+}
+
+final case class GroupedDependencyDetailedIdentifier(hashes: Hashes, identifiers: Seq[Identifier], evidence: Seq[Evidence], fileNames: Seq[String]) {
+  def canonize: CanonizedGroupedDependencyDetailedIdentifier = CanonizedGroupedDependencyDetailedIdentifier(hashes = hashes, identifiers =  identifiers, evidence = evidence, fileNames = fileNames)
+}
 
 object GroupedDependencyDetailedIdentifier{
   def fromGroupedDependency(groupedDependency: GroupedDependency) = GroupedDependencyDetailedIdentifier(
@@ -45,7 +55,17 @@ object GroupedDependencyDetailedIdentifier{
   )
 }
 
-final case class GroupedVulnerableDependencyDetailedIdentifier(hashes: Hashes, identifiers: Seq[Identifier], fileNames: Seq[String], vulnerabilities: Seq[String])
+final case class CanonizedGroupedVulnerableDependencyDetailedIdentifier(hashes: Hashes, identifiers: Seq[Identifier], fileNames: Seq[String], vulnerabilities: Seq[String]) {
+  override def hashCode(): Int = 52+hashes.hashCode()
+  override def equals(obj: scala.Any): Boolean = obj match {
+    case same: CanonizedGroupedVulnerableDependencyDetailedIdentifier => hashes.equals(same.hashes)
+    case _ => false
+  }
+}
+
+final case class GroupedVulnerableDependencyDetailedIdentifier(hashes: Hashes, identifiers: Seq[Identifier], fileNames: Seq[String], vulnerabilities: Seq[String]) {
+  def canonize: CanonizedGroupedVulnerableDependencyDetailedIdentifier = CanonizedGroupedVulnerableDependencyDetailedIdentifier(hashes = hashes, identifiers = identifiers, fileNames = fileNames, vulnerabilities = vulnerabilities)
+}
 
 object GroupedVulnerableDependencyDetailedIdentifier{
   def fromGroupedDependency(groupedDependency: GroupedDependency) = GroupedVulnerableDependencyDetailedIdentifier(
@@ -67,8 +87,10 @@ object Statistics{
   implicit val evidenceWrites = Json.writes[Evidence]
   implicit val groupedDependencyIdentifierWrites = Json.writes[GroupedDependencyIdentifier]
   implicit val groupedDependencyDetailedIdentifierWrites = Json.writes[GroupedDependencyDetailedIdentifier]
+  implicit val canonizedGroupedDependencyDetailedIdentifierWrites = Json.writes[CanonizedGroupedDependencyDetailedIdentifier]
   //implicit val groupedDependencyFormats = Json.format[GroupedDependency]
-  implicit val GroupedVulnerableDependencyDetailedIdentifierWrites = Json.writes[GroupedVulnerableDependencyDetailedIdentifier]
+  implicit val groupedVulnerableDependencyDetailedIdentifierWrites = Json.writes[GroupedVulnerableDependencyDetailedIdentifier]
+  implicit val canonizedGroupedVulnerableDependencyDetailedIdentifierWrites = Json.writes[CanonizedGroupedVulnerableDependencyDetailedIdentifier]
 
 }
 
@@ -428,10 +450,11 @@ class Statistics @Inject()(
           def compare[T](f: Result => Set[T]) = new SetDiff(f(selection.result), f(adHocReports))
           Ok(Json.obj(
             "vulnerabilities"->showDiff(compare(extractVulnerabilities))(),
-            "dependencies"->showDiff(compare(_.groupedDependencies.map(GroupedDependencyDetailedIdentifier.fromGroupedDependency).toSet))(),
+            "dependencies"->showDiff(compare(_.groupedDependencies.map(GroupedDependencyDetailedIdentifier.fromGroupedDependency(_).canonize).toSet))(),
             "vulnerableDependencies"->showDiff(compare(_.vulnerableDependencies.map(_.hashes).toSet))(
-              mapAdded = h => GroupedVulnerableDependencyDetailedIdentifier.fromGroupedDependency(adHocReports.groupedDependenciesByHashes(h)),
-              mapRemoved = h => GroupedVulnerableDependencyDetailedIdentifier.fromGroupedDependency(selection.result.groupedDependenciesByHashes(h))
+              // TODO: consider better handling of divergent sets of vulnerabilities
+              mapAdded = h => GroupedVulnerableDependencyDetailedIdentifier.fromGroupedDependency(adHocReports.groupedDependenciesByHashes(h)).canonize,
+              mapRemoved = h => GroupedVulnerableDependencyDetailedIdentifier.fromGroupedDependency(selection.result.groupedDependenciesByHashes(h)).canonize
             )
           ))
         }
