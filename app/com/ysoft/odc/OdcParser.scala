@@ -106,7 +106,8 @@ final case class RelatedDependency(
   suppressedIdentifiers: Seq[Identifier],
   license: String,
   vulnerabilities: Seq[Vulnerability],
-  suppressedVulnerabilities: Seq[Vulnerability]
+  suppressedVulnerabilities: Seq[Vulnerability],
+  isVirtual: Boolean
 ) extends AbstractDependency
 
 /**
@@ -286,7 +287,8 @@ object OdcParser {
   }
 
   def parseVulnerability(node: Node, expectedLabel: String = "vulnerability"): Vulnerability = {
-    checkElements(node, Set("name", "severity", "cwe", "cvssScore", "description", "references", "vulnerableSoftware", "cvssAuthenticationr", "cvssAvailabilityImpact", "cvssAccessVector", "cvssIntegrityImpact", "cvssAccessComplexity", "cvssConfidentialImpact"))
+    checkElements(node, Set("name", "severity", "cwe", "cvssScore", "description", "references", "vulnerableSoftware", "cvssAuthenticationr", "cvssAvailabilityImpact", "cvssAccessVector", "cvssIntegrityImpact", "cvssAccessComplexity", "cvssConfidentialImpact", "notes"))
+    // TODO: notes element is currently ignored
     if(node.label != expectedLabel){
       sys.error(s"Unexpected element for vuln: ${node.label}")
     }
@@ -328,12 +330,14 @@ object OdcParser {
     if(node.label != expectedLabel){
       sys.error("Unexpected label for identifier: "+node.label)
     }
-    checkElements(node, Set("name", "url"))
+    checkElements(node, Set("name", "url", "notes"))
+    // TODO: process currently ignored element “notes”
     checkParams(node, Set("type", "confidence"))
     val ExtractPattern = """\((.*)\)""".r
     identifierPool(Identifier(
       name = (node \ "name").text match {
-        case ExtractPattern(text) => text
+        case ExtractPattern(text) => text // used in old ODC
+        case text => text // used in new ODC
       },
       url = (node \ "url").text,
       identifierType = node.attribute("type").get.text,
@@ -365,7 +369,7 @@ object OdcParser {
 
   def parseRelatedDependency(node: Node): RelatedDependency = {
     checkElements(node, Set("fileName", "filePath", "md5", "sha1", "description", "evidenceCollected", "identifier", "license", "vulnerabilities", "relatedDependencies"))
-    checkParams(node, Set())
+    checkParams(node, Set("isVirtual"))
     val (vulnerabilities: Seq[Node], suppressedVulnerabilities: Seq[Node]) = (node \ "vulnerabilities").headOption.map(filterWhitespace).getOrElse(Seq()).partition(_.label == "vulnerability")
     relatedDependencyPool(RelatedDependency(
       fileName = (node \ "fileName").text,
@@ -377,7 +381,8 @@ object OdcParser {
       suppressedIdentifiers = (node \ "suppressedIdentifier").map(parseIdentifier(_, "suppressedIdentifier", parseConfidence = false)),
       license = (node \ "license").text,
       vulnerabilities = vulnerabilities.map(parseVulnerability(_)),
-      suppressedVulnerabilities = suppressedVulnerabilities.map(parseVulnerability(_, "suppressedVulnerability"))
+      suppressedVulnerabilities = suppressedVulnerabilities.map(parseVulnerability(_, "suppressedVulnerability")),
+      isVirtual = node.boolAttribute("isVirtual").getOrElse(false)
     ))
   }
 
