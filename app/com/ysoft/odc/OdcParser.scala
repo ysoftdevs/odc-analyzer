@@ -303,6 +303,7 @@ object OdcParser {
                   hopefullyTextChild match {
                     case Text(data) => Some(data)
                   }
+                case Seq() => None
               }
           }
       }
