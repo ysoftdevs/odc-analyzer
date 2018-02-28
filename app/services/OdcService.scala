@@ -25,14 +25,23 @@ case class OdcConfig(odcPath: String, extraArgs: Seq[String] = Seq(), workingDir
 
 case class SingleLibraryScanResult(mainDependencies: Seq[GroupedDependency], transitiveDependencies: Seq[GroupedDependency], includesTransitive: Boolean, limitationsOption: Option[String])
 
+class OdcInstallation(odcPath: Path){
+  private def suffix = if(SystemUtils.IS_OS_WINDOWS) "bat" else "sh"
+  def odcBin = odcPath.resolve("bin").resolve("dependency-check."+suffix).toFile.getAbsolutePath
+  def odcVersion: String = {
+    import sys.process._
+    Seq(odcBin, "--version").!!.trim.reverse.takeWhile(_!=' ').reverse
+  }
+  def pluginFiles: Seq[File] = odcPath.resolve("plugins").toFile.listFiles().toSeq
+}
+
 class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbConnectionConfig)(implicit application: Application){
   private implicit val executionContext: ExecutionContext = Akka.system.dispatchers.lookup("contexts.odc-workers")
-  private def suffix = if(SystemUtils.IS_OS_WINDOWS) "bat" else "sh"
-  private def odcBin = new File(new File(odcConfig.odcPath), "bin"+separatorChar+"dependency-check."+suffix).getAbsolutePath
   private def mavenBin = "mvn"
   private def nugetBin = "nuget"
   private val OutputFormat = "XML"
   private val DependencyNotFoundPrefix = "[ERROR] Failed to execute goal on project odc-adhoc-project: Could not resolve dependencies for project com.ysoft:odc-adhoc-project:jar:1.0-SNAPSHOT: Could not find artifact "
+  private def resolveOdcInstallation = new OdcInstallation(Paths.get(odcConfig.odcPath).toRealPath()) // makes the path fixed, so it does not switch versions when a symlink is changed
 
   private def mavenLogChecks(log: String) = {
     if(log.lines contains "[INFO] No dependencies were identified that could be analyzed by dependency-check"){
@@ -48,7 +57,7 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
     createOdcCommand = createMavenOdcCommand,
     isMainLibraryOption = Some(_.identifiers.exists(id => id.identifierType == "maven" && id.name == s"$groupId:$artifactId:$version")),
     logChecks = mavenLogChecks
-  ){ dir =>
+  ){ (odcInstallation, dir) =>
     val pomXml = <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
       <modelVersion>4.0.0</modelVersion>
       <groupId>com.ysoft</groupId>
@@ -70,7 +79,7 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
               </execution>
             </executions>
             <dependencies>
-              {pluginFiles.map{x =>
+              {odcInstallation.pluginFiles.map{x =>
                 <dependency>
                   <groupId>com.ysoft</groupId>
                   <artifactId>ad-hoc-artifact-{UUID.randomUUID().toString}</artifactId>
@@ -103,7 +112,7 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
     ),
     enableMultipleMainLibraries = true,
     limitations = Some("Scans for .NET libraries usually contain multiple DLL variants of the same library, because multiple targets (e.g., .NETFramework 4.0, .NETFramework 4.5, .NETStandard 1.0, Portable Class Library, …) are scanned.")
-  ){dir =>
+  ){(_, dir) =>
     val packagesConfig = <packages>
         <package id={packageName} version={version} />
       </packages>
@@ -143,21 +152,22 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
   }
 
   private def scanInternal(
-    createOdcCommand: (String, Path, String) => Seq[String] = createStandardOdcCommand,
+    createOdcCommand: (OdcInstallation, String, Path, String) => Seq[String] = createStandardOdcCommand,
     isMainLibraryOption: Option[AbstractDependency => Boolean],
     logChecks: String => Unit = s => (),
     enableMultipleMainLibraries: Boolean = false,
     limitations: Option[String] = None
   )(
-    f: Path => Unit
+    f: (OdcInstallation, Path) => Unit
   ): Future[SingleLibraryScanResult] = Future{
     withTmpDir { scanDir =>
+      val odcInstallation = resolveOdcInstallation
       val scandirPrefix = s"$scanDir$separatorChar"
       val reportFilename = s"${scandirPrefix}report.xml"
       val path = scanDir.resolve("scanned-dir")
       Files.createDirectory(path)
-      f(path)
-      val cmd: Seq[String] = createOdcCommand(scandirPrefix, path, reportFilename)
+      f(odcInstallation, path)
+      val cmd: Seq[String] = createOdcCommand(odcInstallation, scandirPrefix, path, reportFilename)
       val process = new ProcessBuilder(cmd: _*).
         directory(new File(odcConfig.workingDirectory)).
         redirectErrorStream(true).
@@ -198,18 +208,11 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
     }
   }
 
-  private def odcVersion: String = {
-    import sys.process._
-    Seq(odcBin, "--version").!!.trim.reverse.takeWhile(_!=' ').reverse
-  }
-
-  private def pluginFiles: Seq[File] = new File(new File(odcConfig.odcPath), "plugins").listFiles().toSeq
-
-  private def createHintfulOdcCommand(scandirPrefix: String, path: Path, reportFilename: String): Seq[String] = {
+  private def createHintfulOdcCommand(odcInstallation: OdcInstallation, scandirPrefix: String, path: Path, reportFilename: String): Seq[String] = {
     val newPropertyFile = s"${scandirPrefix}odc.properties"
     createModifiedProps(newPropertyFile, Map("hints.file" -> s"${scandirPrefix}hints.xml"))
     val cmdBase = Seq(
-      odcBin,
+      odcInstallation.odcBin,
       "-s", path.toString,
       "--project", "AdHocProject",
       "--noupdate",
@@ -242,11 +245,11 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
     }
   }
 
-  private def createStandardOdcCommand(scandirPrefix: String, path: Path, reportFilename: String): Seq[String] = {
+  private def createStandardOdcCommand(odcInstallation: OdcInstallation, scandirPrefix: String, path: Path, reportFilename: String): Seq[String] = {
     val newPropertyFile = s"${scandirPrefix}odc.properties"
     createModifiedProps(newPropertyFile)
     val cmdBase = Seq(
-      odcBin,
+      odcInstallation.odcBin,
       "-s", path.toString,
       "--project", "AdHocProject",
       "--noupdate",
@@ -258,13 +261,13 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
     cmdBase ++ odcConfig.extraArgs
   }
 
-  private def createMavenOdcCommand(scandirPrefix: String, path: Path, reportFilename: String): Seq[String] = {
+  private def createMavenOdcCommand(odcInstallation: OdcInstallation, scandirPrefix: String, path: Path, reportFilename: String): Seq[String] = {
     val cmdBase = Seq(
       mavenBin,
       "--file", s"${path}${separatorChar}pom.xml",
       "-X",
       "-U", // force update
-      s"org.owasp:dependency-check-maven:$odcVersion:check",
+      s"org.owasp:dependency-check-maven:${odcInstallation.odcVersion}:check",
       "-Dautoupdate=false",
       s"-Dformat=$OutputFormat",
       s"-DlogFile=${scandirPrefix}verbose.log",
