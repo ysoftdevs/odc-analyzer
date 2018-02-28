@@ -25,7 +25,7 @@ case class OdcConfig(odcPath: String, extraArgs: Seq[String] = Seq(), workingDir
 
 case class SingleLibraryScanResult(mainDependencies: Seq[GroupedDependency], transitiveDependencies: Seq[GroupedDependency], includesTransitive: Boolean, limitationsOption: Option[String])
 
-class OdcInstallation(odcPath: Path){
+class OdcInstallation(val workingDirectory: Path, odcPath: Path){
   private def suffix = if(SystemUtils.IS_OS_WINDOWS) "bat" else "sh"
   def odcBin = odcPath.resolve("bin").resolve("dependency-check."+suffix).toFile.getAbsolutePath
   def odcVersion: String = {
@@ -41,7 +41,12 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
   private def nugetBin = "nuget"
   private val OutputFormat = "XML"
   private val DependencyNotFoundPrefix = "[ERROR] Failed to execute goal on project odc-adhoc-project: Could not resolve dependencies for project com.ysoft:odc-adhoc-project:jar:1.0-SNAPSHOT: Could not find artifact "
-  private def resolveOdcInstallation = new OdcInstallation(Paths.get(odcConfig.odcPath).toRealPath()) // makes the path fixed, so it does not switch versions when a symlink is changed
+  private def resolveOdcInstallation = {
+    val workingDirectory = Paths.get(odcConfig.workingDirectory).toRealPath()
+    new OdcInstallation(
+      workingDirectory = workingDirectory,
+      odcPath = workingDirectory.resolve(odcConfig.odcPath).toRealPath()) // makes the path fixed, so it does not switch versions when a symlink is changed
+  }
 
   private def mavenLogChecks(log: String) = {
     if(log.lines contains "[INFO] No dependencies were identified that could be analyzed by dependency-check"){
@@ -112,7 +117,7 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
     ),
     enableMultipleMainLibraries = true,
     limitations = Some("Scans for .NET libraries usually contain multiple DLL variants of the same library, because multiple targets (e.g., .NETFramework 4.0, .NETFramework 4.5, .NETStandard 1.0, Portable Class Library, …) are scanned.")
-  ){(_, dir) =>
+  ){(odcInstallation, dir) =>
     val packagesConfig = <packages>
         <package id={packageName} version={version} />
       </packages>
@@ -126,7 +131,7 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
       dir.toString
     ) ++ odcConfig.dotNetNugetSource.fold(Seq[String]())(source => Seq("-source", source))
     val process = new ProcessBuilder(cmd: _*).
-      directory(new File(odcConfig.workingDirectory)).
+      directory(odcInstallation.workingDirectory.toFile).
       redirectErrorStream(true).
       start()
     val rawLog = consumeStream(process.getInputStream)
@@ -169,7 +174,7 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
       f(odcInstallation, path)
       val cmd: Seq[String] = createOdcCommand(odcInstallation, scandirPrefix, path, reportFilename)
       val process = new ProcessBuilder(cmd: _*).
-        directory(new File(odcConfig.workingDirectory)).
+        directory(odcInstallation.workingDirectory.toFile).
         redirectErrorStream(true).
         start()
       val in = process.getInputStream
@@ -210,7 +215,7 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
 
   private def createHintfulOdcCommand(odcInstallation: OdcInstallation, scandirPrefix: String, path: Path, reportFilename: String): Seq[String] = {
     val newPropertyFile = s"${scandirPrefix}odc.properties"
-    createModifiedProps(newPropertyFile, Map("hints.file" -> s"${scandirPrefix}hints.xml"))
+    createModifiedProps(odcInstallation, newPropertyFile, Map("hints.file" -> s"${scandirPrefix}hints.xml"))
     val cmdBase = Seq(
       odcInstallation.odcBin,
       "-s", path.toString,
@@ -224,10 +229,10 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
     cmdBase ++ odcConfig.extraArgs
   }
 
-  private def createModifiedProps(newPropertyFile: String, additionalProps: Map[String, String] = Map()) = {
+  private def createModifiedProps(odcInstallation: OdcInstallation, newPropertyFile: String, additionalProps: Map[String, String] = Map()) = {
     val p = new Properties()
     for (origPropFile <- odcConfig.propertyFile) {
-      val in = new FileInputStream(Paths.get(odcConfig.workingDirectory).resolve(origPropFile).toFile)
+      val in = new FileInputStream(odcInstallation.workingDirectory.resolve(origPropFile).toFile)
       try {
         p.load(in)
       } finally {
@@ -247,7 +252,7 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
 
   private def createStandardOdcCommand(odcInstallation: OdcInstallation, scandirPrefix: String, path: Path, reportFilename: String): Seq[String] = {
     val newPropertyFile = s"${scandirPrefix}odc.properties"
-    createModifiedProps(newPropertyFile)
+    createModifiedProps(odcInstallation, newPropertyFile)
     val cmdBase = Seq(
       odcInstallation.odcBin,
       "-s", path.toString,
@@ -273,7 +278,7 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
       s"-DlogFile=${scandirPrefix}verbose.log",
       s"-DoutputDirectory=$reportFilename"
     )
-    cmdBase ++ propsArgs ++ propsToArgs(dbProps) // TODO: fix credentials leak via /proc
+    cmdBase ++ propsArgs(odcInstallation) ++ propsToArgs(dbProps) // TODO: fix credentials leak via /proc
   }
 
   private def dbProps = Map(
@@ -286,9 +291,9 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
 
   private def propsToArgs(props: Traversable[(String, String)]): Traversable[String] = for((key, value) <- props) yield s"-D$key=$value"
 
-  private def propsArgs = odcConfig.propertyFile.fold(Seq[String]()){ propertyFile =>
+  private def propsArgs(odcInstallation: OdcInstallation) = odcConfig.propertyFile.fold(Seq[String]()){ propertyFile =>
     val props = new Properties()
-    val in = new FileInputStream(Paths.get(odcConfig.workingDirectory).resolve(propertyFile).toFile)
+    val in = new FileInputStream(odcInstallation.workingDirectory.resolve(propertyFile).toFile)
     try {
       props.load(in)
     } finally {
