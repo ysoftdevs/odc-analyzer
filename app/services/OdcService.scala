@@ -23,7 +23,9 @@ case class OdcDbConnectionConfig(driverClass: String, driverJar: String, url: St
 
 case class OdcConfig(odcPath: String, extraArgs: Seq[String] = Seq(), workingDirectory: String = ".", propertyFile: Option[String], cleanTmpDir: Boolean = true, dotNetNugetSource: Option[String])
 
-case class SingleLibraryScanResult(mainDependencies: Seq[GroupedDependency], transitiveDependencies: Seq[GroupedDependency], includesTransitive: Boolean, limitationsOption: Option[String])
+case class SingleLibraryScanResult(mainDependencies: Seq[GroupedDependency], transitiveDependencies: Seq[GroupedDependency], includesTransitive: Boolean, limitations: Seq[String]) {
+  def allDependencies: Seq[GroupedDependency] = mainDependencies ++ transitiveDependencies
+}
 
 class OdcInstallation(val workingDirectory: Path, odcPath: Path){
   private def suffix = if(SystemUtils.IS_OS_WINDOWS) "bat" else "sh"
@@ -56,6 +58,28 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
       val missingDependency = missingDependencyMessage.drop(DependencyNotFoundPrefix.length).takeWhile(_ != ' ')
       throw DependencyNotFoundException(missingDependency)
     }
+  }
+
+  def isManualWebJarIdentifier(name: String): Boolean = name.startsWith("org.webjars:")
+  def isBowerWebJarIdentifier(name: String): Boolean = name.startsWith("org.webjars.bower:")
+  def isNpmWebJarIdentifier(name: String): Boolean = name.startsWith("org.webjars.npm:")
+  def isUnknownWebJarIdentifier(name: String): Boolean = name.startsWith("org.webjars.") && !(isNpmWebJarIdentifier(name) ||isManualWebJarIdentifier(name) || isBowerWebJarIdentifier(name))
+
+  def addMavenLibsLimitations(result: SingleLibraryScanResult): SingleLibraryScanResult = {
+    def hasMavenIdentifier(f: String => Boolean) = result.allDependencies.exists(dep => dep.mavenIdentifiers.exists(identifier => f(identifier.name)))
+    val hasManualWebJar = hasMavenIdentifier(isManualWebJarIdentifier)
+    val hasBowerWebJar = hasMavenIdentifier(isBowerWebJarIdentifier)
+    val hasUnknownWebJar = hasMavenIdentifier(isUnknownWebJarIdentifier)
+    val hasUnrecommendedWebJar = hasManualWebJar || hasBowerWebJar || hasUnknownWebJar
+    val additionalLimitations = if(hasUnrecommendedWebJar)
+      Seq(
+        "You seem to use some WebJar other than NPM. Please consider using a NPM variant of the WebJar if possible. "+
+          "NPM has currently the best support and ODC is most likely to find vulnerabilities (if they are present) there."+
+          (if(hasBowerWebJar) " Bower is deprecated." else "")+
+          (if(hasManualWebJar) " Classic WebJars require manual work of maintainer, so they might be harder to update." else "")+
+          (if(hasUnknownWebJar) " You seem to use some kind of WebJar this tool does not know (NPM/Bower/Classic)." else "")
+      ) else Seq()
+    result.copy(limitations = result.limitations ++ additionalLimitations)
   }
 
   def scanMaven(groupId: String, artifactId: String, version: String): Future[SingleLibraryScanResult] = scanInternal(
@@ -106,7 +130,7 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
       </dependencies>
     </project>
     Files.write(dir.resolve("pom.xml"), pomXml.toString.getBytes(UTF_8))
-  }
+  }.map(addMavenLibsLimitations)
 
   def scanDotNet(packageName: String, version: String): Future[SingleLibraryScanResult] = scanInternal(
     createOdcCommand = createStandardOdcCommand,
@@ -116,7 +140,7 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
         (dep.fileName == s"$packageName.$version.nupkg: $packageName.nuspec")
     ),
     enableMultipleMainLibraries = true,
-    limitations = Some("Scans for .NET libraries usually contain multiple DLL variants of the same library, because multiple targets (e.g., .NETFramework 4.0, .NETFramework 4.5, .NETStandard 1.0, Portable Class Library, …) are scanned.")
+    limitations = Seq("Scans for .NET libraries usually contain multiple DLL variants of the same library, because multiple targets (e.g., .NETFramework 4.0, .NETFramework 4.5, .NETStandard 1.0, Portable Class Library, …) are scanned.")
   ){(odcInstallation, dir) =>
     val packagesConfig = <packages>
         <package id={packageName} version={version} />
@@ -161,7 +185,7 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
     isMainLibraryOption: Option[AbstractDependency => Boolean],
     logChecks: String => Unit = s => (),
     enableMultipleMainLibraries: Boolean = false,
-    limitations: Option[String] = None
+    limitations: Seq[String] = Seq.empty
   )(
     f: (OdcInstallation, Path) => Unit
   ): Future[SingleLibraryScanResult] = Future{
@@ -196,7 +220,7 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
             mainDependencies = Seq(GroupedDependency(Seq(mainLibrary))),
             transitiveDependencies = otherLibraries.map(dep => GroupedDependency(Seq(dep))),
             includesTransitive = isMainLibraryOption.isDefined,
-            limitationsOption = limitations
+            limitations = limitations
           )
         case (mainLibraries, otherLibraries) =>
           if(enableMultipleMainLibraries) {
@@ -204,7 +228,7 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
               mainDependencies = mainLibraries.map(dep => GroupedDependency(Seq(dep))),
               transitiveDependencies = otherLibraries.map(dep => GroupedDependency(Seq(dep))),
               includesTransitive = isMainLibraryOption.isDefined,
-              limitationsOption = limitations
+              limitations = limitations
             )
           } else {
             sys.error(s"multiple (${mainLibraries.size}) libraries selected as the main library: "+otherLibraries)

@@ -1,13 +1,13 @@
 @import services.SingleLibraryScanResult
 @(isDbOld: Boolean, singleLibraryScanResult: SingleLibraryScanResult)(implicit header: DefaultRequest, mainTemplateData: MainTemplateData)
-@import singleLibraryScanResult.{transitiveDependencies, includesTransitive, mainDependencies, limitationsOption}
+@import singleLibraryScanResult.{transitiveDependencies, includesTransitive, mainDependencies, limitations}
 <h2>Overall result</h2>
 @vulnerableTransitive = @{transitiveDependencies.exists(_.isVulnerable)}
 @vulnerableMain = @{mainDependencies.exists(_.isVulnerable)}
 @if(isDbOld){
     <div class="alert alert-warning">The vulnerability database seems to be outdated. Result might be thus inaccurate. Contact the administrator, please.</div>
 }
-@for(limitations <- limitationsOption){
+@for(limitations <- limitations){
     <div class="alert alert-warning"><strong>This scan has some limitations: </strong>@limitations</div>
 }
 @(vulnerableMain, vulnerableTransitive) match {
