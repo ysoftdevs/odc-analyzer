@@ -12,6 +12,7 @@ import models.LibraryTag
 import modules.TemplateCustomization
 import org.joda.time.DateTime
 import play.api.i18n.MessagesApi
+import play.api.libs.json.Json.JsValueWrapper
 import play.api.libs.json._
 import play.twirl.api.Txt
 import services._
@@ -91,7 +92,6 @@ object Statistics{
   //implicit val groupedDependencyFormats = Json.format[GroupedDependency]
   implicit val groupedVulnerableDependencyDetailedIdentifierWrites = Json.writes[GroupedVulnerableDependencyDetailedIdentifier]
   implicit val canonizedGroupedVulnerableDependencyDetailedIdentifierWrites = Json.writes[CanonizedGroupedVulnerableDependencyDetailedIdentifier]
-
 }
 
 //noinspection TypeAnnotation
@@ -368,6 +368,18 @@ class Statistics @Inject()(
         Future.successful(selection.result.groupedDependenciesByHashes.get(depId) match {
           case None => NotFound(views.html.libraryNotFound(depId = depId, selectorOption = selectorOption))
           case Some(dep) => Ok(views.html.library(dep = dep, selectorOption = selectorOption))
+        })
+      }
+    }
+  }
+
+  def libraryVulnerabilities(depId: com.ysoft.odc.Hashes) = ApiAction(ScanResults).async { implicit req =>
+    val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
+    resultsFuture flatMap { allResults =>
+      select(allResults, None).fold(Future.successful(NotFound(Json.obj("error"->"not found")))) { selection =>
+        Future.successful(selection.result.groupedDependenciesByHashes.get(depId) match {
+          case None => NotFound(Json.obj("error"->"not found"))
+          case Some(dep) => Ok(Json.arr(dep.vulnerabilities.map(_.name).toIndexedSeq.sorted.map(x => x : JsValueWrapper) : _*))
         })
       }
     }
