@@ -45,6 +45,22 @@
                         enableSubmit();
                     }
                 });
+            },
+            filterByProfile: function (el){
+                $("> *", el.parentNode).removeClass("active");
+                function filter(root){
+                    var profileClass = $(el).data("profileclass");
+                    var allLibraries = $(root.getElementsByClassName("library"));
+                    if(profileClass){
+                        allLibraries.hide();
+                        $(root.getElementsByClassName(profileClass)).show();
+                    }else{
+                        allLibraries.show();
+                    }
+                }
+                filter(document.getElementById("main-table"));
+                filter(document.getElementById("transitive-table"));
+                $(el).addClass("active");
             }
         };
 

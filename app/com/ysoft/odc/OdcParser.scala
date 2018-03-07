@@ -67,6 +67,7 @@ abstract sealed class AbstractDependency{
   def license: String
   def vulnerabilities: Seq[Vulnerability]
   def suppressedVulnerabilities: Seq[Vulnerability]
+  def hashes = Hashes(sha1 = sha1, md5 = md5)
 }
 
 final case class Dependency(
@@ -85,7 +86,9 @@ final case class Dependency(
   isVirtual: Boolean
 ) extends AbstractDependency {
 
-  def hashes = Hashes(sha1 = sha1, md5 = md5)
+  def relatedSameDependencies: Seq[RelatedDependency] = relatedDependencies.filter(_.hashes == hashes)
+
+  def filePaths: Seq[String] = Seq(filePath) ++ relatedSameDependencies.map(_.filePath)
 
   def plainLibraryIdentifiers: Set[PlainLibraryIdentifier] = identifiers.flatMap(_.toLibraryIdentifierOption).toSet
 
@@ -116,6 +119,7 @@ final case class RelatedDependency(
  * @param dependencies
  */
 final case class GroupedDependency(dependencies: Map[Dependency, Set[ReportInfo]]) {
+  def paths: Set[String] = dependencies.keySet.flatMap(dependency => dependency.filePaths)
   def parsedDescriptions: Seq[Seq[Seq[String]]] = descriptions.toSeq.sorted.map(_.trim.split("\n\n").filterNot(_=="").toSeq.map(_.split("\n").toSeq))
   def isVulnerable: Boolean = vulnerabilities.nonEmpty
   def maxCvssScore = (Seq(None) ++ vulnerabilities.map(_.cvssScore)).max

@@ -1,28 +1,43 @@
 @import services.SingleLibraryScanResult
 @(isDbOld: Boolean, singleLibraryScanResult: SingleLibraryScanResult)(implicit header: DefaultRequest, mainTemplateData: MainTemplateData)
-@import singleLibraryScanResult.{transitiveDependencies, includesTransitive, mainDependencies, limitations}
+@import singleLibraryScanResult.{transitiveDependencies, includesTransitive, mainDependencies, limitations, profilesOption}
+@requiresAttention = @{limitations.exists(_.requiresAttention)}
+@for((profiles, _) <- profilesOption){
+    <h2>Profiles</h2>
+    @if(profiles.size > 1) {
+        <p>This scan provider results for multiple profiles. By default, all results all shown, but you can filter it.</p>
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-default" onclick="LibraryAdvisorUI.filterByProfile(this)">All profiles</button>
+            @for(profile <- profiles) {
+                <button type="button" class="btn btn-default" onclick="LibraryAdvisorUI.filterByProfile(this)" data-profileclass="@profileClass(profile)">@profile</button>
+            }
+        </div>
+    }else{
+        All results belong to profile <strong>@profiles.head</strong>.
+    }
+}
 <h2>Overall result</h2>
 @vulnerableTransitive = @{transitiveDependencies.exists(_.isVulnerable)}
 @vulnerableMain = @{mainDependencies.exists(_.isVulnerable)}
 @if(isDbOld){
     <div class="alert alert-warning">The vulnerability database seems to be outdated. Result might be thus inaccurate. Contact the administrator, please.</div>
 }
-@for(limitations <- limitations){
-    <div class="alert alert-warning"><strong>This scan has some limitations: </strong>@limitations</div>
+@for(limitation <- limitations){
+    <div class="alert alert-@limitation.severity"><strong>Limitation: </strong>@limitation.message</div>
 }
 @(vulnerableMain, vulnerableTransitive) match {
     case (false, false) => {
-        <div class="alert alert-success">No vulnerability has been found in the library@if(includesTransitive){ or in its transitive dependencies}.</div>
+        <div class="alert alert-@if(requiresAttention){warning}else{success}">
+            No vulnerability has been found in the library@if(includesTransitive){ or in its transitive dependencies}.
+            @if(requiresAttention){However, take care of the limitations above, please.}
+        </div>
     }
     case (false, true) => {<div class="alert alert-warning">While there is no vulnerability found in the library itself, but scan has identified some issues in its transitive dependencies. Maybe you should evict some dependency with a fixed version. @vulnerabilityAdvice()</div>}
     case (true, false) => {<div class="alert alert-danger">There is a vulnerability found in the main dependency. Transitive dependencies are OK. Please consider using a patched version or consider impact of the vulnerabilities. @vulnerabilityAdvice()</div>}
     case (true, true) => {<div class="alert alert-danger">There is a vulnerability found in both the main dependency and transitive dependencies. Please consider using a patched version or consider impact of the vulnerabilities. @vulnerabilityAdvice()</div>}
 }
-@if(!includesTransitive){
-    <div class="alert alert-warning">This type of scan does not scan transitive dependencies.</div>
-}
 <h2>The library itself</h2>
-@dependencyList("id", mainDependencies, None, expand = _.isVulnerable, addButtons = false, lazyLoad = false, showAffectedProjects = false, expandVulnerabilities = true, vulnerabilitySearch = false)
+@dependencyList("main", mainDependencies, None, expand = _.isVulnerable, addButtons = false, lazyLoad = false, showAffectedProjects = false, expandVulnerabilities = true, vulnerabilitySearch = false, profilesOption = profilesOption)
 @if(includesTransitive) {
     <h2>Transitive dependencies</h2>
     @if(transitiveDependencies.nonEmpty) {
@@ -31,7 +46,7 @@
         }else{
             <div class="alert alert-info">There is no known vulnerability in transitive dependencies. They are listed just for your information.</div>
         }
-        @dependencyList("id", transitiveDependencies.sorted(severityOrdering), None, expand = _.isVulnerable, addButtons = false, lazyLoad = false, showAffectedProjects = false, expandVulnerabilities = true, vulnerabilitySearch = true)
+        @dependencyList("transitive", transitiveDependencies.sorted(severityOrdering), None, expand = _.isVulnerable, addButtons = false, lazyLoad = false, showAffectedProjects = false, expandVulnerabilities = true, vulnerabilitySearch = true, profilesOption = profilesOption)
     }else{
         This library has no transitive dependencies.
     }

@@ -154,6 +154,7 @@ slick.dbs.odc {
 #   dotNetNugetSource = "https://path/to/your/nuget/proxy" # [optional]
 #   extraArgs = [] # [optional] Unstable conf; This might be changed or removed without any notice!!!
 #   cleanTmpDir = true # [optional] Keep temporary directory content for debugging
+#   useDotNetCore = true # [optional] Use .NET Core for library scanning. You need dotnet executable on $PATH. This is currently useful for scanning of transitive dependencies.
 # }
 
 silhouette {

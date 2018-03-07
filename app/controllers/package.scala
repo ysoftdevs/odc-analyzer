@@ -67,4 +67,12 @@ package object controllers {
 
   }
 
+  /**
+    * Converts profile name (used in .NET) to a valid HTML classname.
+    */
+  def profileClass(s: String): String = "profile-"+s.flatMap{
+    case c if c.isLetterOrDigit && c < 128 => c.toString
+    case other => s"_${other.toHexString}_"
+  }
+
 }

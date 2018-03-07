@@ -1,9 +1,9 @@
-@(idPrefix: String, list: Seq[GroupedDependency], selectorOption: Option[String], lazyLoad: Boolean = true, expand: GroupedDependency => Boolean = _ => false, addButtons: Boolean = true, showAffectedProjects: Boolean = true, expandVulnerabilities: Boolean = false, vulnerabilitySearch: Boolean = true)
+@(idPrefix: String, list: Seq[GroupedDependency], selectorOption: Option[String], lazyLoad: Boolean = true, expand: GroupedDependency => Boolean = _ => false, addButtons: Boolean = true, showAffectedProjects: Boolean = true, expandVulnerabilities: Boolean = false, vulnerabilitySearch: Boolean = true, profilesOption: Option[(Seq[String], GroupedDependency => Seq[String])] = None)
 @cpeHtmlId(cpe: String) = @{
     cpe.getBytes("utf-8").mkString("-")
 }
 
-<table class="table table-condensed dependencies-table">
+<table class="table table-condensed dependencies-table" id="@idPrefix-table">
     <thead>
         <tr>
             <th>Severity</th>
@@ -12,37 +12,39 @@
             <th class="actions"></th>
         </tr>
     </thead>
-    @for(dep <- list; depPrefix = s"$idPrefix-${dep.hashes.serialized}"){
-        <tr>
-            <td class="severity">
-                @dep.maxCvssScore.fold{
-                    <span class="label label-success">OK</span>
-                }{ s =>
-                    <span class="score-vulnerability">@s</span>
-                    @if(showAffectedProjects){
-                        <span class="computation-details">
-                            <span class="score-projects">affects @dep.projects.size @if(dep.projects.size>1){projects}else{project}</span>
-                        </span>
+    @for(dep <- list; depPrefix = s"$idPrefix-${dep.hashes.serialized}"; classes={profilesOption.fold(Seq[String]()){case (_, parser) => parser(dep).map(profileClass)}}){
+        <tbody class="@((classes++Seq("library")).mkString(" "))">
+            <tr>
+                <td class="severity">
+                    @dep.maxCvssScore.fold{
+                        <span class="label label-success">OK</span>
+                    }{ s =>
+                        <span class="score-vulnerability">@s</span>
+                        @if(showAffectedProjects){
+                            <span class="computation-details">
+                                <span class="score-projects">affects @dep.projects.size @if(dep.projects.size>1){projects}else{project}</span>
+                            </span>
+                        }
                     }
+                </td>
+                <td class="identifiers">
+                    @libraryIdentificationList(dep, Some(cpe => s"$idPrefix-${dep.hashes.serialized}-suppression-cpe-${cpeHtmlId(cpe)}"), addLink = false, addButtons = addButtons)
+                </td>
+                <td class="vulns">@for(s <- dep.maxCvssScore) {@dep.vulnerabilities.size}</td>
+                <td class="actions">
+                    <button data-toggle="collapse" data-target="#@depPrefix-details" class="btn btn-info @if(!expand(dep)){collapsed} expandable expandable-right"></button>
+                </td>
+            </tr>
+            <tr data-wrapper="<td colspan='4'></td>" id="@depPrefix-details" class="details collapse@if(expand(dep)){ in}" @if(lazyLoad){data-lazyload-url="@routes.Statistics.dependencyDetails(
+                depPrefix = depPrefix,
+                depId = dep.hashes,
+                selectorOption = selectorOption
+            )"}>
+                @if(!lazyLoad){
+                    <td colspan="4">@dependencyDetailsInner(depPrefix = depPrefix, dep = dep, selectorOption = selectorOption, showAffectedProjects = showAffectedProjects, expandVulnerabilities = expandVulnerabilities, vulnerabilitySearch = vulnerabilitySearch)</td>
                 }
-            </td>
-            <td class="identifiers">
-                @libraryIdentificationList(dep, Some(cpe => s"$idPrefix-${dep.hashes.serialized}-suppression-cpe-${cpeHtmlId(cpe)}"), addLink = false, addButtons = addButtons)
-            </td>
-            <td class="vulns">@for(s <- dep.maxCvssScore) {@dep.vulnerabilities.size}</td>
-            <td class="actions">
-                <button data-toggle="collapse" data-target="#@depPrefix-details" class="btn btn-info @if(!expand(dep)){collapsed} expandable expandable-right"></button>
-            </td>
-        </tr>
-        <tr data-wrapper="<td colspan='4'></td>" id="@depPrefix-details" class="details collapse@if(expand(dep)){ in}" @if(lazyLoad){data-lazyload-url="@routes.Statistics.dependencyDetails(
-            depPrefix = depPrefix,
-            depId = dep.hashes,
-            selectorOption = selectorOption
-        )"}>
-            @if(!lazyLoad){
-                <td colspan="4">@dependencyDetailsInner(depPrefix = depPrefix, dep = dep, selectorOption = selectorOption, showAffectedProjects = showAffectedProjects, expandVulnerabilities = expandVulnerabilities, vulnerabilitySearch = vulnerabilitySearch)</td>
-            }
-        </tr>
+            </tr>
+        </tbody>
     }
 </table>
 <script type="text/javascript">

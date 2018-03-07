@@ -171,7 +171,7 @@ h3.library-identification{
     vertical-align: bottom;
     width: 10px;
 }
-.dependencies-table > tbody > tr:nth-of-type(4n+1), .dependencies-table > tbody > tr:nth-of-type(4n+2) {
+.dependencies-table > tbody:hover > tr {
     background-color: #f9f9f9;
 }
 .dependencies-table > tbody > tr.details > td {

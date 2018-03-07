@@ -2,15 +2,12 @@ package services
 
 import java.io.File.separatorChar
 import java.io._
-import java.lang.{Boolean => JBoolean}
 import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file._
 import java.nio.file.attribute.BasicFileAttributes
-import java.sql.{Array => _}
-import java.util.{Properties, UUID, Map => JMap}
+import java.util.{Properties, UUID}
 
 import _root_.org.apache.commons.lang3.SystemUtils
-import _root_.org.owasp.dependencycheck.dependency.{VulnerableSoftware => OdcVulnerableSoftware}
 import com.google.inject.Inject
 import com.ysoft.odc.{AbstractDependency, GroupedDependency, OdcParser}
 import controllers.DependencyCheckReportsParser
@@ -21,15 +18,39 @@ import scala.concurrent.{ExecutionContext, Future}
 
 case class OdcDbConnectionConfig(driverClass: String, driverJar: String, url: String, user: String, password: String)
 
-case class OdcConfig(odcPath: String, extraArgs: Seq[String] = Seq(), workingDirectory: String = ".", propertyFile: Option[String], cleanTmpDir: Boolean = true, dotNetNugetSource: Option[String])
+case class OdcConfig(
+  odcPath: String,
+  extraArgs: Seq[String] = Seq(),
+  workingDirectory: String = ".",
+  propertyFile: Option[String],
+  cleanTmpDir: Boolean = true,
+  dotNetNugetSource: Option[String],
+  useDotNetCore: Boolean = false
+)
 
-case class SingleLibraryScanResult(mainDependencies: Seq[GroupedDependency], transitiveDependencies: Seq[GroupedDependency], includesTransitive: Boolean, limitations: Seq[String]) {
+abstract sealed class Limitation(val severity: String){
+  def message: String
+  def requiresAttention: Boolean
+}
+
+object Limitation{
+  case class Notice(message: String) extends Limitation("info"){
+    override def requiresAttention: Boolean = false
+  }
+  case class Warning(message: String) extends Limitation("warning"){
+    override def requiresAttention: Boolean = true
+  }
+}
+
+case class PreparationResult(limitations: Seq[Limitation] = Seq(), profilesOption: Option[(Seq[String], GroupedDependency => Seq[String])] = None, includesTransitive: Boolean)
+
+case class SingleLibraryScanResult(mainDependencies: Seq[GroupedDependency], transitiveDependencies: Seq[GroupedDependency], includesTransitive: Boolean, limitations: Seq[Limitation], profilesOption: Option[(Seq[String], GroupedDependency => Seq[String])]) {
   def allDependencies: Seq[GroupedDependency] = mainDependencies ++ transitiveDependencies
 }
 
 class OdcInstallation(val workingDirectory: Path, odcPath: Path){
   private def suffix = if(SystemUtils.IS_OS_WINDOWS) "bat" else "sh"
-  def odcBin = odcPath.resolve("bin").resolve("dependency-check."+suffix).toFile.getAbsolutePath
+  def odcBin: String = odcPath.resolve("bin").resolve("dependency-check."+suffix).toFile.getAbsolutePath
   def odcVersion: String = {
     import sys.process._
     Seq(odcBin, "--version").!!.trim.reverse.takeWhile(_!=' ').reverse
@@ -72,13 +93,13 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
     val hasUnknownWebJar = hasMavenIdentifier(isUnknownWebJarIdentifier)
     val hasUnrecommendedWebJar = hasManualWebJar || hasBowerWebJar || hasUnknownWebJar
     val additionalLimitations = if(hasUnrecommendedWebJar)
-      Seq(
+      Seq(Limitation.Warning(
         "You seem to use some WebJar other than NPM. Please consider using a NPM variant of the WebJar if possible. "+
           "NPM has currently the best support and ODC is most likely to find vulnerabilities (if they are present) there."+
           (if(hasBowerWebJar) " Bower is deprecated." else "")+
           (if(hasManualWebJar) " Classic WebJars require manual work of maintainer, so they might be harder to update." else "")+
           (if(hasUnknownWebJar) " You seem to use some kind of WebJar this tool does not know (NPM/Bower/Classic)." else "")
-      ) else Seq()
+      )) else Seq()
     result.copy(limitations = result.limitations ++ additionalLimitations)
   }
 
@@ -130,22 +151,13 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
       </dependencies>
     </project>
     Files.write(dir.resolve("pom.xml"), pomXml.toString.getBytes(UTF_8))
+    PreparationResult(includesTransitive = true)
   }.map(addMavenLibsLimitations)
 
-  def scanDotNet(packageName: String, version: String): Future[SingleLibraryScanResult] = scanInternal(
-    createOdcCommand = createStandardOdcCommand,
-    isMainLibraryOption = Some(dep =>
-      (dep.fileName == s"$packageName.dll") ||
-        (dep.fileName == s"$packageName.$version.nupkg") ||
-        (dep.fileName == s"$packageName.$version.nupkg: $packageName.nuspec")
-    ),
-    enableMultipleMainLibraries = true,
-    limitations = Seq("Scans for .NET libraries usually contain multiple DLL variants of the same library, because multiple targets (e.g., .NETFramework 4.0, .NETFramework 4.5, .NETStandard 1.0, Portable Class Library, …) are scanned.")
-  ){(odcInstallation, dir) =>
+  private def nugetRestore(odcInstallation: OdcInstallation, dir: Path, packagesConfigFile: Path, packageName: String, version: String): Unit = {
     val packagesConfig = <packages>
-        <package id={packageName} version={version} />
-      </packages>
-    val packagesConfigFile = dir.resolve("..").resolve("packages.config")
+      <package id={packageName} version={version}/>
+    </packages>
     Files.write(packagesConfigFile, packagesConfig.toString().getBytes(UTF_8))
     val cmd = Seq(
       nugetBin,
@@ -160,13 +172,100 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
       start()
     val rawLog = consumeStream(process.getInputStream)
     val res = process.waitFor()
-    if(res != 0){
+    if (res != 0) {
       val log = new String(rawLog)
       val NotFoundRegex = """Unable to find version '([^']+)' of package '([^']+)'.""".r
       log.lines.toStream.head match {
         case NotFoundRegex(version, packageName) => throw DependencyNotFoundException(s"$packageName:$version")
         case _ => sys.error(s"Bad return code from NuGet: $res. Output: $log")
       }
+    }
+  }
+
+  private def dotnetRestore(odcInstallation: OdcInstallation, dir: Path, csprojFile: Path, packageName: String, version: String, targetFramework: String): Unit = {
+    val csproj = <Project Sdk="Microsoft.NET.Sdk">
+      <PropertyGroup>
+        <TargetFramework>{targetFramework}</TargetFramework>
+      </PropertyGroup>
+      <ItemGroup>
+        <PackageReference Include={packageName} Version={version} />
+      </ItemGroup>
+    </Project>
+    Files.write(csprojFile, csproj.toString().getBytes(UTF_8))
+    val cmd = Seq(
+      "dotnet",
+      "restore",
+      csprojFile.toString,
+      "--packages",
+      dir.toString
+    ) ++ odcConfig.dotNetNugetSource.fold(Seq[String]())(source => Seq("--source", source))
+    val process = new ProcessBuilder(cmd: _*).
+      directory(odcInstallation.workingDirectory.toFile).
+      redirectErrorStream(true).
+      start()
+    val rawLog = consumeStream(process.getInputStream)
+    val res = process.waitFor()
+    if(res != 0){
+      val log = new String(rawLog) // we probably should use the default encoding when it comes from a process through a pipe…
+      sys.error(s"Bad return code from DotNet restore: $res. Output: $log")
+    }
+  }
+
+  def findDotNetProfiles(dir: Path)(gd: GroupedDependency): Seq[String] = {
+    // each .NET framework profile has a separate directory starting with "framework-". We just parse that to get profile from path.
+    val pathPrefix = dir.toString + File.separatorChar
+    gd.paths.toSeq.map{path =>
+      if(path startsWith pathPrefix){
+        path.substring(pathPrefix.length).takeWhile(_ != File.separatorChar)
+      }else{
+        sys.error(s"Unexpected path: $path")
+      }
+    }.collect{
+      case s if s startsWith "framework-" => s.substring("framework-".length)
+    }.distinct
+  }
+
+  def scanDotNet(packageName: String, version: String): Future[SingleLibraryScanResult] = scanInternal(
+    createOdcCommand = createStandardOdcCommand,
+    isMainLibraryOption = Some(dep => {
+      val fileNameCanon = dep.fileName.toLowerCase()
+      (fileNameCanon == s"$packageName.dll".toLowerCase()) ||
+        (fileNameCanon == s"$packageName.$version.nupkg".toLowerCase()) ||
+        (fileNameCanon == s"$packageName:$version".toLowerCase()) ||
+        (fileNameCanon == s"$packageName.$version.nupkg: $packageName.nuspec".toLowerCase())
+    }
+    ),
+    enableMultipleMainLibraries = true,
+    limitations = Seq(Limitation.Notice("Scans for .NET libraries usually contain multiple DLL variants of the same library, because multiple targets (e.g., .NETFramework 4.0, .NETFramework 4.5, .NETStandard 1.0, Portable Class Library, …) are scanned."))
+  ){(odcInstallation, dir) =>
+    import scala.collection.JavaConverters._
+    val packagesConfigFile = dir.resolve("packages.config")
+    val plainDir = dir.resolve("plain")
+    Files.createDirectory(plainDir)
+    nugetRestore(odcInstallation, plainDir, packagesConfigFile, packageName, version)
+    if(odcConfig.useDotNetCore) {
+      val libDir = Files.list(plainDir).iterator().asScala.toIndexedSeq match {
+        case Seq(single) => single.resolve("lib")
+        case Seq() => sys.error("missing directory after resolution")
+        case other => sys.error(s"Seems like some unexpected files: $other")
+      }
+      if (Files.exists(libDir)) {
+        val profiles = Files.list(libDir).iterator().asScala.toIndexedSeq.map(_.getFileName.toString)
+        for (targetFramework <- profiles) {
+          val csprojFile = dir.resolve("ad-hoc-project-" + targetFramework + ".csproj")
+          val tfDir = dir.resolve("framework-" + targetFramework)
+          Files.createDirectory(tfDir)
+          dotnetRestore(odcInstallation, tfDir, csprojFile, packageName, version, targetFramework)
+        }
+        PreparationResult(profilesOption = Some((profiles, findDotNetProfiles(dir))), includesTransitive = true)
+      } else {
+        // In this case, we don't have a set of TFMs for scanning. We would have to resolve dependencies for all of them.
+        // We cannot pick just one of them until we are sure that some of dependencies cannot have some other TMF-dependent dependencies.
+        PreparationResult(limitations = Seq(Limitation.Warning("Transitive dependencies are not scanned, because it is not supported for .NET libraries without a limited set of target frameworks.")), includesTransitive = false)
+      }
+    }else{
+      // fallback to old mode without transitive dependencies
+      PreparationResult(includesTransitive = false, limitations = Seq(Limitation.Warning("Transitive dependencies are not scanned, because odc.useDotNetCore is not enabled. See config.")))
     }
   }
 
@@ -185,9 +284,9 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
     isMainLibraryOption: Option[AbstractDependency => Boolean],
     logChecks: String => Unit = s => (),
     enableMultipleMainLibraries: Boolean = false,
-    limitations: Seq[String] = Seq.empty
+    limitations: Seq[Limitation] = Seq.empty
   )(
-    f: (OdcInstallation, Path) => Unit
+    f: (OdcInstallation, Path) => PreparationResult
   ): Future[SingleLibraryScanResult] = Future{
     withTmpDir { scanDir =>
       val odcInstallation = resolveOdcInstallation
@@ -195,7 +294,7 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
       val reportFilename = s"${scandirPrefix}report.xml"
       val path = scanDir.resolve("scanned-dir")
       Files.createDirectory(path)
-      f(odcInstallation, path)
+      val preparationResult = f(odcInstallation, path)
       val cmd: Seq[String] = createOdcCommand(odcInstallation, scandirPrefix, path, reportFilename)
       val process = new ProcessBuilder(cmd: _*).
         directory(odcInstallation.workingDirectory.toFile).
@@ -211,29 +310,24 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
         sys.error(s"Non-zero return value: $res; output: $log")
       }
       val result = DependencyCheckReportsParser.forAdHocScan(OdcParser.parseXmlReport(Files.readAllBytes(Paths.get(reportFilename))))
-      result.allDependencies.partition{case (dep, _) =>
+      val (mainLibraries, otherLibraries) = result.allDependencies.partition{case (dep, _) =>
         isMainLibraryOption.fold(true)(f => f(dep) || dep.relatedDependencies.exists(f))
-      } match {
-        case (Seq(), _) => sys.error("No library is selected as the main library")
-        case (Seq(mainLibrary), otherLibraries) =>
-          SingleLibraryScanResult(
-            mainDependencies = Seq(GroupedDependency(Seq(mainLibrary))),
-            transitiveDependencies = otherLibraries.map(dep => GroupedDependency(Seq(dep))),
-            includesTransitive = isMainLibraryOption.isDefined,
-            limitations = limitations
-          )
-        case (mainLibraries, otherLibraries) =>
-          if(enableMultipleMainLibraries) {
-            SingleLibraryScanResult(
-              mainDependencies = mainLibraries.map(dep => GroupedDependency(Seq(dep))),
-              transitiveDependencies = otherLibraries.map(dep => GroupedDependency(Seq(dep))),
-              includesTransitive = isMainLibraryOption.isDefined,
-              limitations = limitations
-            )
-          } else {
-            sys.error(s"multiple (${mainLibraries.size}) libraries selected as the main library: "+otherLibraries)
-          }
       }
+      mainLibraries.size match {
+        case 0 => sys.error("No library is selected as the main library")
+        case 1 => // that's OK
+        case _ if enableMultipleMainLibraries => // that's OK
+        case _ if !enableMultipleMainLibraries => sys.error(s"multiple (${mainLibraries.size}) libraries selected as the main library: "+mainLibraries)
+      }
+      val mainDependencies = mainLibraries.map(dep => GroupedDependency(Seq(dep)))
+      val transitiveDependencies = otherLibraries.map(dep => GroupedDependency(Seq(dep)))
+      SingleLibraryScanResult(
+        mainDependencies = mainDependencies,
+        transitiveDependencies = transitiveDependencies,
+        includesTransitive = preparationResult.includesTransitive,
+        limitations = limitations ++ preparationResult.limitations,
+        profilesOption = preparationResult.profilesOption
+      )
     }
   }
 
