@@ -21,6 +21,7 @@ class Projects (
   )
 
   def teamById(id: String): Team = teamsById(id)
+  def getTeamById(id: String): Option[Team] = teamsById.get(id)
 
   def teamSet: Set[Team] = teamsById.values.toSet
 

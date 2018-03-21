@@ -139,10 +139,14 @@ object DependencyCheckReportsParser{
     private val ProjectSelectorPattern = """^project:(.*)$""".r
     private val TeamSelectorPattern = """^team:(.*)$""".r
 
-    private def parseFilter(filter: String): Filter = filter match {
-      case ProjectSelectorPattern(project) => ProjectFilter(projectsReportInfo.reportIdToReportInfo(project))
-      case TeamSelectorPattern(team) => TeamFilter(projects.teamById(team))
-      case other => BadFilter(other)
+    private def parseFilter(filter: String): Filter = {
+      def mapToFilter[T](dataOption: Option[T], filterCreator: T => Filter): Filter =
+        dataOption.fold[Filter](BadFilter(filter))(filterCreator)
+      filter match {
+        case ProjectSelectorPattern(project) => mapToFilter(projectsReportInfo.reportIdToReportInfo.get(project), ProjectFilter)
+        case TeamSelectorPattern(team) => mapToFilter(projects.getTeamById(team), TeamFilter)
+        case other => BadFilter(other)
+      }
     }
 
     def selection(selectorOption: Option[String]): Option[ResultWithSelection] = {
