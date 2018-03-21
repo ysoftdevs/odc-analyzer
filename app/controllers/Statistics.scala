@@ -92,6 +92,7 @@ object Statistics{
   //implicit val groupedDependencyFormats = Json.format[GroupedDependency]
   implicit val groupedVulnerableDependencyDetailedIdentifierWrites = Json.writes[GroupedVulnerableDependencyDetailedIdentifier]
   implicit val canonizedGroupedVulnerableDependencyDetailedIdentifierWrites = Json.writes[CanonizedGroupedVulnerableDependencyDetailedIdentifier]
+
 }
 
 //noinspection TypeAnnotation
@@ -475,4 +476,33 @@ class Statistics @Inject()(
   }
 
 
+  def librariesCountApi(selector: Option[String], operator: Option[String], threshold: Option[Double], strict: Boolean) = ApiAction(Dependencies).async{ implicit req =>
+    val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
+    val vulnLibFilterOrError: Either[GroupedDependency => Boolean, String] = (operator, threshold) match {
+      case (Some("gte"|">="|"≥"), Some(num)) => Left(_.vulnerabilities.exists(_.cvssScore.exists(_>=num)))
+      case (Some("gt"|">"), Some(num)) => Left(_.vulnerabilities.exists(_.cvssScore.exists(_>num)))
+      // Other operators are currently not defined due to unclear semantics when some library has multiple vulnerabilities with various severities
+      case (None, None) => Left(_ => true)
+      case _ => Right("Bad combination of operator and number. Supported operators are gt and gte or their variants (>, >=, ≥).")
+    }
+    vulnLibFilterOrError match {
+      case Left(vulnLibFilter) =>
+        resultsFuture flatMap { allResults =>
+          select(allResults, selector).fold(Future.successful(NotFound(Json.obj("error" -> "not found")))) { selection =>
+            val reports = selection.result
+            if (reports.failedProjects.nonEmpty && strict) {
+              Future.successful(InternalServerError(Json.obj("error" -> "I don't have all results I need.")))
+            } else {
+              Future.successful(Ok(Json.toJson(Map(
+                "all" -> reports.groupedDependencies.size,
+                "vulnerable" -> reports.vulnerableDependencies.count(vulnLibFilter)
+              ))))
+            }
+          }
+        }
+      case Right(error) => Future.successful(BadRequest(Json.obj("error" -> error)))
+    }
+  }
+
 }
+

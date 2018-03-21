@@ -4,6 +4,7 @@
 
 # Home page
 GET         /                                 controllers.Application.homepage()
+GET         /api/stats/libraries/count.json   controllers.Statistics.librariesCountApi(selector: Option[String], operator: Option[String], threshold: Option[Double], strict: Boolean)
 GET         /api/table                        controllers.Statistics.table()
 GET         /api/all-dependencies.json        controllers.Statistics.allDependencies(selector: Option[String])
 GET         /api/all-dependencies-verbose.json controllers.Statistics.allDependenciesVerbose(selector: Option[String])
