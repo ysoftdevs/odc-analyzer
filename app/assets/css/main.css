@@ -45,11 +45,6 @@
     font-size: smaller;
 }
 
-h3.library-identification{
-    border: 1px solid black;
-    padding: 5px;
-}
-
 .library-identification-badge-hack{
     display: inline-block;
     width: 1px;
@@ -75,10 +70,18 @@ h3.library-identification{
     color: white;
     font-weight: bold;
 }
-.dependencies-table .identifiers ul, .dependencies-table .identifiers ul li{
+.identifiers ul, .identifiers ul li{
     margin-left: 0;
     padding-left: 0;
     list-style-type: none;
+}
+div.identifiers li.library-identification{
+    border: 2px solid gray;
+    border-left-width: 0;
+    border-right-width: 0;
+    padding: 5px 5px 5px 16px;
+    display: block;
+    margin: 0 0 -2px 0;
 }
 
 .severity{
@@ -196,11 +199,11 @@ h3.library-identification{
 .dependencies-table .severity .score-vulnerability:hover{
     color: rgb(192, 0, 0);
 }
-.dependencies-table .identifiers .tooltip-inner {
+.identifiers .tooltip-inner {
     max-width: 350px;
     width: 350px;
 }
-.dependencies-table .identifiers .explained{
+.identifiers .explained{
     border-bottom: none;
 }
 .dependencies-table .vulnerabilities-details > li{
