@@ -38,6 +38,7 @@ object SerializableXml{
 final case class Analysis(scanInfo: SerializableXml, name: String, reportDate: DateTime, dependencies: Seq[Dependency])
 
 final case class Hashes(sha1: String, md5: String){
+  // TODO: consider adding SHA256 without breaking backward compatibility
   override def toString: String = s"Hashes(sha1=$sha1, md5=$md5)"
   def hashTuples: Seq[(String, String)] = Seq("sha1" -> sha1, "md5" -> md5)
   def serialized = s"$sha1-$md5"
@@ -61,6 +62,7 @@ abstract sealed class AbstractDependency{
   def filePath: String
   def md5: String
   def sha1: String
+  def sha256: String
   def description: String
   def identifiers: Seq[Identifier]
   def suppressedIdentifiers: Seq[Identifier]
@@ -75,6 +77,7 @@ final case class Dependency(
   filePath: String,
   md5: String,
   sha1: String,
+  sha256: String,
   description: String,
   evidenceCollected: Set[Evidence],
   identifiers: Seq[Identifier],
@@ -104,6 +107,7 @@ final case class RelatedDependency(
   filePath: String,
   md5: String,
   sha1: String,
+  sha256: String,
   description: String,
   identifiers: Seq[Identifier],
   suppressedIdentifiers: Seq[Identifier],
@@ -172,8 +176,9 @@ object Confidence extends Enumeration {
 final case class Reference(source: String, url: String, name: String)
 
 final case class VulnerableSoftware(allPreviousVersion: Boolean, name: String){
-  def containsVersion = name.count(_==':') >= 4
-  def isVersionless = !containsVersion
+  def containsVersion: Boolean = name.count(_==':') >= 4
+  def isCpe: Boolean = name.startsWith("cpe:")
+  def isVersionless: Boolean = isCpe && !containsVersion
 }
 
 final case class CvssRating(score: Option[Double], authenticationr: Option[String], availabilityImpact: Option[String], accessVector: Option[String], integrityImpact: Option[String], accessComplexity: Option[String], confidentialImpact: Option[String])
@@ -351,7 +356,8 @@ object OdcParser {
   }
 
   def parseDependency(node: Node): Dependency = {
-    checkElements(node, Set("fileName", "filePath", "md5", "sha1", "description", "evidenceCollected", "identifiers", "license", "vulnerabilities", "relatedDependencies"))
+    checkElements(node, Set("fileName", "filePath", "md5", "sha1", "sha256", "description", "evidenceCollected", "identifiers", "license", "vulnerabilities", "relatedDependencies", "projectReferences"))
+    // TODO: process projectReferences
     checkParams(node, Set("isVirtual"))
     val (vulnerabilities: Seq[Node], suppressedVulnerabilities: Seq[Node]) = (node \ "vulnerabilities").headOption.map(filterWhitespace).getOrElse(Seq()).partition(_.label == "vulnerability")
     val (identifiers, suppressedIdentifiers) = (node \ "identifiers").headOption.map(filterWhitespace).getOrElse(Seq()).partition(_.label == "identifier")
@@ -360,6 +366,7 @@ object OdcParser {
       filePath = (node \ "filePath").text,
       md5 = (node \ "md5").text,
       sha1 = (node \ "sha1").text,
+      sha256 = (node \ "sha256").text,
       description = (node \ "description").text,
       evidenceCollected = filterWhitespace((node \ "evidenceCollected").head).map(parseEvidence).toSet,
       identifiers = identifiers.map(parseIdentifier(_, "identifier")),
@@ -373,7 +380,7 @@ object OdcParser {
   }
 
   def parseRelatedDependency(node: Node): RelatedDependency = {
-    checkElements(node, Set("fileName", "filePath", "md5", "sha1", "description", "evidenceCollected", "identifier", "license", "vulnerabilities", "relatedDependencies"))
+    checkElements(node, Set("fileName", "filePath", "md5", "sha1", "sha256", "description", "evidenceCollected", "identifier", "license", "vulnerabilities", "relatedDependencies"))
     checkParams(node, Set("isVirtual"))
     val (vulnerabilities: Seq[Node], suppressedVulnerabilities: Seq[Node]) = (node \ "vulnerabilities").headOption.map(filterWhitespace).getOrElse(Seq()).partition(_.label == "vulnerability")
     relatedDependencyPool(RelatedDependency(
@@ -381,6 +388,7 @@ object OdcParser {
       filePath = (node \ "filePath").text,
       md5 = (node \ "md5").text,
       sha1 = (node \ "sha1").text,
+      sha256 = (node \ "sha256").text,
       description = (node \ "description").text,
       identifiers = (node \ "identifier").map(parseIdentifier(_, "identifier", parseConfidence = false)),
       suppressedIdentifiers = (node \ "suppressedIdentifier").map(parseIdentifier(_, "suppressedIdentifier", parseConfidence = false)),

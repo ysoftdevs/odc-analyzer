@@ -31,6 +31,7 @@ object ReportsFactory{
       filePath = s"dep-for-$projectId",
       md5 = DigestUtils.md5Hex(fakeFileContent),
       sha1 = DigestUtils.sha1Hex(fakeFileContent),
+      sha256 = DigestUtils.sha256Hex(fakeFileContent),
       description = s"Some fake dependency for project $projectId",
       evidenceCollected = Set(),
       identifiers = Seq(buildFakeIdentifier(projectId)),
