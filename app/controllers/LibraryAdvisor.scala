@@ -54,7 +54,8 @@ class LibraryAdvisor @Inject() (
             val groupId = (xml \ "groupId").text
             val artifactId = (xml \ "artifactId").text
             val version = (xml \ "version").text
-            Left(odcService.scanMaven(groupId, artifactId, version))
+            val depType = (xml \ "type").text
+            Left(odcService.scanMaven(groupId, artifactId, version, depType))
           case other =>
             Right(s"Unknown root XML element: $other")
         }
@@ -68,7 +69,7 @@ class LibraryAdvisor @Inject() (
             // https://mvnrepository.com/artifact/ch.qos.logback/logback-classic/0.9.10
             url.getPath.split('/') match {
               case Array("", "artifact", groupId, artifactId, version) =>
-                Left(odcService.scanMaven(groupId, artifactId, version))
+                Left(odcService.scanMaven(groupId, artifactId, version, ""))
               case _ =>
                 Right("Unknown path for mvnrepository.com: Expected https://mvnrepository.com/artifact/<groupId>/<artifactId>/<version>")
             }

@@ -103,12 +103,9 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
     result.copy(limitations = result.limitations ++ additionalLimitations)
   }
 
-  def scanMaven(groupId: String, artifactId: String, version: String): Future[SingleLibraryScanResult] = scanInternal(
-    createOdcCommand = createMavenOdcCommand,
-    isMainLibraryOption = Some(_.identifiers.exists(id => id.identifierType == "maven" && id.name == s"$groupId:$artifactId:$version")),
-    logChecks = mavenLogChecks
-  ){ (odcInstallation, dir) =>
-    val pomXml = <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  def scanMaven(groupId: String, artifactId: String, version: String, depType: String): Future[SingleLibraryScanResult] = {
+    val allowMultiple = depType != ""
+    def pomXml(odcInstallation: OdcInstallation) = <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
       <modelVersion>4.0.0</modelVersion>
       <groupId>com.ysoft</groupId>
       <artifactId>odc-adhoc-project</artifactId>
@@ -147,12 +144,24 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
           <groupId>{groupId}</groupId>
           <artifactId>{artifactId}</artifactId>
           <version>{version}</version>
+          {if (depType != "") <type>{depType}</type>}
         </dependency>
       </dependencies>
     </project>
-    Files.write(dir.resolve("pom.xml"), pomXml.toString.getBytes(UTF_8))
-    PreparationResult(includesTransitive = true)
-  }.map(addMavenLibsLimitations)
+    scanInternal(
+      createOdcCommand = createMavenOdcCommand,
+      isMainLibraryOption = Some(isMainMavenLib(groupId, artifactId, version, allowMultiple)(_)),
+      logChecks = mavenLogChecks,
+      enableMultipleMainLibraries = allowMultiple
+    ) { (odcInstallation, dir) =>
+      Files.write(dir.resolve("pom.xml"), pomXml(odcInstallation).toString.getBytes(UTF_8))
+      PreparationResult(includesTransitive = true)
+    }.map(addMavenLibsLimitations)
+  }
+
+  private def isMainMavenLib(groupId: String, artifactId: String, version: String, allowMultiple: Boolean)(dep: AbstractDependency): Boolean = {
+    allowMultiple || dep.identifiers.exists(id => id.identifierType == "maven" && id.name == s"$groupId:$artifactId:$version")
+  }
 
   private def nugetRestore(odcInstallation: OdcInstallation, dir: Path, packagesConfigFile: Path, packageName: String, version: String): Unit = {
     val packagesConfig = <packages>
