@@ -260,7 +260,7 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
       }
       if (Files.exists(libDir)) {
         val profiles = Files.list(libDir).iterator().asScala.toIndexedSeq.map(_.getFileName.toString)
-        for (targetFramework <- profiles) {
+        for (targetFramework <- profiles.toSet -- Set("tools")) { // TODO: handle list of frameworks better
           val csprojFile = dir.resolve("ad-hoc-project-" + targetFramework + ".csproj")
           val tfDir = dir.resolve("framework-" + targetFramework)
           Files.createDirectory(tfDir)
