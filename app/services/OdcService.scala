@@ -259,8 +259,8 @@ class OdcService @Inject() (odcConfig: OdcConfig, odcDbConnectionConfig: OdcDbCo
         case other => sys.error(s"Seems like some unexpected files: $other")
       }
       if (Files.exists(libDir)) {
-        val profiles = Files.list(libDir).iterator().asScala.toIndexedSeq.map(_.getFileName.toString)
-        for (targetFramework <- profiles.toSet -- Set("tools")) { // TODO: handle list of frameworks better
+        val profiles = (Files.list(libDir).iterator().asScala.toIndexedSeq.map(_.getFileName.toString).toSet -- Set("tools")).toIndexedSeq.sorted  // TODO: handle list of frameworks better
+        for (targetFramework <- profiles) {
           val csprojFile = dir.resolve("ad-hoc-project-" + targetFramework + ".csproj")
           val tfDir = dir.resolve("framework-" + targetFramework)
           Files.createDirectory(tfDir)
