@@ -293,19 +293,25 @@ class Statistics @Inject()(
   implicit val scannedRepositoryFormat = Json.format[ScannedRepository]
   implicit val scannedProjectFormats = Json.format[ScannedProject]
 
+  private val RepoFetchLogLine = """.*Fetching 'refs/heads/(.*)' from '(.*)'\..*""".r  // Bamboo does not seem to have a suitable API, so we are parsing it from logs…
+
   def table() = ApiAction(ProjectTable).async{
-    val RepoFetch = """.*Fetching 'refs/heads/(.*)' from '(.*)'\..*""".r  // Bamboo does not seem to have a suitable API, so we are parsing it from logs…
     val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
     resultsFuture map { allResults =>
       val t = projects.projectMap
       val rows = t.toIndexedSeq.sortBy(r => (r._2.toLowerCase, r._2)).map{case (key, name) =>
-        val repos = allResults._1.get(key).map(_._3.dataString.lines.collect{
-          case RepoFetch(branch, repo) => ScannedRepository(repo, branch)
-        }.toSet).getOrElse(Set.empty).toIndexedSeq.sortBy(ScannedRepository.unapply)
+        val repos: _root_.scala.collection.immutable.IndexedSeq[_root_.controllers.ScannedRepository] = getRepositoryForScan(allResults._1, key)
         ScannedProject(name, repos, projects.teamsByProjectId(key).toIndexedSeq.map(_.name).sorted, key)
       }
       Ok(Json.toJson(rows))
     }
+  }
+
+  private def getRepositoryForScan(successfulResults: Map[String, (Build, ArtifactItem, ArtifactFile)], key: String) = {
+    val repos = successfulResults.get(key).map(_._3.dataString.lines.collect {
+      case RepoFetchLogLine(branch, repo) => ScannedRepository(repo, branch)
+    }.toSet).getOrElse(Set.empty).toIndexedSeq.sortBy(ScannedRepository.unapply)
+    repos
   }
 
   def allDependencies(selectorOption: Option[String]) = ApiAction(Dependencies).async { implicit req =>
@@ -501,6 +507,29 @@ class Statistics @Inject()(
           }
         }
       case Right(error) => Future.successful(BadRequest(Json.obj("error" -> error)))
+    }
+  }
+
+  def internalDependencies(selector: Option[String]) = ApiAction(Dependencies).async {
+    val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)
+    resultsFuture flatMap { case (successfulResults, failedResults) =>
+      val reports = dependencyCheckReportsParser.parseReports(successfulResults, failedResults)
+      reports.selection(selector).fold(Future.successful(NotFound(Json.obj("error" -> "not found")))) { selection =>
+        val dependenciesByVersionlessIdentifiers = reports.flatReports.groupBy(_._2.groupIdAndArtifactId)
+        val allVersionlessIdentifiers = dependenciesByVersionlessIdentifiers.keySet
+        val scopedVersionlessIdentifiers = selection.result.groupedDependencies.flatMap(_.mavenIdentifiers).map( x => (x.name+":ignored").split(':') match {
+          case Array(groupId, artifactId, version, _) => (groupId, artifactId)
+          case other => sys.error("Unexpected array: "+other.toSeq)
+        }).toSet
+        Future.successful(Ok(Json.toJson(Map(
+          "internalMavenDependencies" -> Json.toJson(allVersionlessIdentifiers.intersect(scopedVersionlessIdentifiers).map(id =>
+            Map(
+              "mavenIdentifier" -> Json.toJson(id match {case (groupId, artifactId) => s"$groupId:$artifactId"}),
+              "repositories" -> Json.toJson(dependenciesByVersionlessIdentifiers(id).map(_._1.projectId).flatMap(getRepositoryForScan(successfulResults, _)).toSet)
+            )
+          ))
+        ))))
+      }
     }
   }
 

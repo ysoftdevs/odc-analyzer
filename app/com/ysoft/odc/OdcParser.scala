@@ -35,7 +35,9 @@ object SerializableXml{
   def apply(xml: NodeSeq): SerializableXml = SerializableXml(xml.toString())
 }
 
-final case class Analysis(scanInfo: SerializableXml, name: String, reportDate: DateTime, dependencies: Seq[Dependency])
+final case class Analysis(scanInfo: SerializableXml, name: String, groupId: String, artifactId: String, version: String, reportDate: DateTime, dependencies: Seq[Dependency]){
+  def groupIdAndArtifactId = (groupId, artifactId)
+}
 
 final case class Hashes(sha1: String, md5: String){
   // TODO: consider adding SHA256 without breaking backward compatibility
@@ -423,6 +425,9 @@ object OdcParser {
     Analysis(
       scanInfo = SerializableXml((xml \ "scanInfo").head),
       name = (xml \ "projectInfo" \ "name").text,
+      groupId = (xml \ "projectInfo" \ "groupID").text,
+      artifactId = (xml \ "projectInfo" \ "artifactID").text,
+      version = (xml \ "projectInfo" \ "version").text,
       reportDate = DateTime.parse((xml \ "projectInfo" \ "reportDate").text),
       dependencies = parseDependencies(xml \ "dependencies" \ "dependency").toIndexedSeq
     )

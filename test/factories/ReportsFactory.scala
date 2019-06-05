@@ -18,7 +18,10 @@ object ReportsFactory{
         reportDate = DateTime.lastDay,
         dependencies = Seq(
           buildDependency(projectId)
-        )
+        ),
+        groupId = "com.ysoft.something",
+        artifactId = "someArtifact",
+        version = "3.1.4.1.5.9.2.6.5.3.6"
       )
     }
     projectId -> thuck
