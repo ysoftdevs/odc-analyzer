@@ -5,7 +5,7 @@ import slick.lifted.Tag
 
 final case class CpeEntry(cpe: String, vendor: String, product: String)
 
-class CpeEntries(tag: Tag)  extends Table[(Int, CpeEntry)](tag, "cpeEntry") {
+class CpeEntries(tag: Tag)  extends Table[(Int, CpeEntry)](tag, "cpeentry") {
 
   def id = column[Int]("id", O.PrimaryKey)
 

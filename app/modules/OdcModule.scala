@@ -11,7 +11,8 @@ class OdcModule extends AbstractModule with ScalaModule{
   override def configure(): Unit = {}
 
   private val Drivers = Map(
-    "slick.driver.MySQLDriver$" -> "org.mariadb.jdbc.Driver"
+    "slick.driver.MySQLDriver$" -> "org.mariadb.jdbc.Driver",
+    "slick.driver.PostgresDriver$" -> "org.postgresql.Driver"
   )
 
   @Provides

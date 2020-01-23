@@ -40,11 +40,7 @@ libraryDependencies += "com.github.tototoshi" %% "slick-joda-mapper" % "2.0.0"
 
 libraryDependencies += "com.github.nscala-time" %% "nscala-time" % "2.0.0"
 
-// libraryDependencies += "org.mariadb.jdbc" % "mariadb-java-client" % "1.1.9"
-
 libraryDependencies += "org.postgresql" % "postgresql" % "9.4-1201-jdbc41"
-
-libraryDependencies += "org.mariadb.jdbc" % "mariadb-java-client" % "1.3.3"
 
 libraryDependencies += "org.webjars" % "bootstrap" % "3.3.5"
 

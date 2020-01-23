@@ -39,7 +39,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 * Java 8
 * PostgreSQL
-* MySQL (updated ODC vulnerability database)
+* Updated ODC vulnerability database in PostgreSQL
 * Bamboo server (read-only access to reports)
 
 Bamboo server runs OWASP Dependency Check scans and provides reports. These reports are needed to be configured separately (this tool does not configure it).
@@ -63,7 +63,7 @@ I decided to use PostgreSQL, because:
 
 ### Vulnerability Database
 
-The application also needs read-only access to vulnerability database maintained by OWASP Dependency Check. ODC currently supports H2 and MySQL. However, there are multiple issues with H2 for this usage. The first one issue is concurrent access. The concurrent access probably could have been somehow configured, but ODC uses different case for MySQL and H2 table names and column names. This makes it hard to support both at the same time.
+The application also needs read-only access to vulnerability database maintained by OWASP Dependency Check. ODC currently supports multiple databases, including H2, MySQL and PostgreSQL. However, there are multiple issues with H2 for this usage. The first one issue is concurrent access. The concurrent access probably could have been somehow configured, but ODC uses various case for table names and column names. This makes it hard to support multiple databases at the same time.
 
 ## Running multiple instances behind load-balancer
 

@@ -4,7 +4,7 @@ import slick.lifted.TableQuery
 
 package object odc {
 
-  val profile = slick.driver.MySQLDriver
+  val profile = slick.driver.PostgresDriver
 
   object tables {
     val cpeEntries = TableQuery[CpeEntries]
