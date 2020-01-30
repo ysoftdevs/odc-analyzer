@@ -207,7 +207,7 @@ object RichBoolean{
   @inline implicit def toRichBoolean(value: Boolean) = new RichBoolean(value)
 }
 
-final case class Vulnerability(name: String, cweOption: Option[CWE], cvss: CvssRating, description: String, vulnerableSoftware: Seq[VulnerableSoftware], references: Seq[Reference]){
+final case class Vulnerability(name: String, /*cweOption: Option[CWE],*/ cvss: CvssRating, description: String, vulnerableSoftware: Seq[VulnerableSoftware], references: Seq[Reference]){
   import RichBoolean.toRichBoolean
   def cvssScore = cvss.score
   def likelyMatchesOnlyWithoutVersion(dependencyIdentifiers: Set[Identifier]) = dependencyIdentifiers.forall { id =>
@@ -236,6 +236,7 @@ final case class Identifier(name: String, confidence: Confidence.Confidence, url
 }
 
 object OdcParser {
+  private val StrictMode = false
 
   private val vulnPool = new ObjectPool()
   private val evidencePool = new ObjectPool()
@@ -251,10 +252,12 @@ object OdcParser {
   }
 
   def checkElements(node: Node, knownElements: Set[String]) {
-    val subelementNames = filterWhitespace(node).map(_.label).toSet
-    val unknownElements = subelementNames -- knownElements
-    if(unknownElements.nonEmpty){
-      sys.error("Unknown elements for "+node.label+": "+unknownElements)
+    if(StrictMode) {
+      val subelementNames = filterWhitespace(node).map(_.label).toSet
+      val unknownElements = subelementNames -- knownElements
+      if (unknownElements.nonEmpty) {
+        sys.error("Unknown elements for " + node.label + ": " + unknownElements)
+      }
     }
   }
 
@@ -264,17 +267,19 @@ object OdcParser {
   }
 
   def checkParams(node: Node, knownParams: Set[String]) {
-    val paramNames = getAttributes(node.attributes).toSet
-    val unknownParams = paramNames -- knownParams
-    if(unknownParams.nonEmpty){
-      sys.error("Unknown params for "+node.label+": "+unknownParams)
+    if(StrictMode) {
+      val paramNames = getAttributes(node.attributes).toSet
+      val unknownParams = paramNames -- knownParams
+      if (unknownParams.nonEmpty) {
+        sys.error("Unknown params for " + node.label + ": " + unknownParams)
+      }
     }
   }
 
 
   def parseVulnerableSoftware(node: Node): VulnerableSoftware = {
     checkElements(node, Set("#PCDATA"))
-    checkParams(node, Set("allPreviousVersion"))
+    checkParams(node, Set("allPreviousVersion", "versionEndIncluding", "versionEndExcluding", "vulnerabilityIdMatched"))
     if(node.label != "software"){
       sys.error(s"Unexpected element for vulnerableSoftware: ${node.label}")
     }
@@ -298,7 +303,7 @@ object OdcParser {
   }
 
   def parseVulnerability(node: Node, expectedLabel: String = "vulnerability"): Vulnerability = {
-    checkElements(node, Set("name", "severity", "cwe", "cvssScore", "description", "references", "vulnerableSoftware", "cvssAuthenticationr", "cvssAvailabilityImpact", "cvssAccessVector", "cvssIntegrityImpact", "cvssAccessComplexity", "cvssConfidentialImpact", "notes"))
+    checkElements(node, Set("name", "severity", "cwe", "cwes", "cvssScore", "cvssV2", "cvssV3", "description", "references", "vulnerableSoftware", "cvssAuthenticationr", "cvssAvailabilityImpact", "cvssAccessVector", "cvssIntegrityImpact", "cvssAccessComplexity", "cvssConfidentialImpact", "notes"))
     // TODO: notes element is currently ignored
     if(node.label != expectedLabel){
       sys.error(s"Unexpected element for vuln: ${node.label}")
@@ -319,29 +324,79 @@ object OdcParser {
           }
       }
     }
+
+    def cvssScore = {
+      val cvssV2 = node \ "cvssV2"
+      if (cvssV2.nonEmpty) {
+        CvssRating(
+          score = (cvssV2 \ "score").headOption.map(_.text.toDouble),
+          authenticationr = t(cvssV2 \ "authenticationr"),
+          availabilityImpact = t(cvssV2 \ "availabilityImpact"),
+          accessVector = t(cvssV2 \ "accessVector"),
+          integrityImpact = t(cvssV2 \ "integrityImpact"),
+          accessComplexity = t(cvssV2 \ "accessComplexity"),
+          confidentialImpact = t(cvssV2 \ "confidentialImpact")
+        )
+      } else {
+        CvssRating(
+          score = (node \ "cvssScore").headOption.map(_.text.toDouble),
+          authenticationr = t(node \ "cvssAuthenticationr"),
+          availabilityImpact = t(node \ "cvssAvailabilityImpact"),
+          accessVector = t(node \ "cvssAccessVector"),
+          integrityImpact = t(node \ "cvssIntegrityImpact"),
+          accessComplexity = t(node \ "cvssAccessComplexity"),
+          confidentialImpact = t(node \ "cvssConfidentialImpact")
+        )
+      }
+    }
+
     vulnPool(Vulnerability(
       name = (node \ "name").text,
       //severity = (node \ "severity"), <- severity is useless, as it is computed from cvssScore :D
-      cweOption = (node \ "cwe").headOption.map(_.text).map(CWE.forIdentifierWithDescription),
+      //cweOption = (node \ "cwe").headOption.map(_.text).map(CWE.forIdentifierWithDescription),
       description = (node \ "description").text,
-      cvss = CvssRating(
-        score = (node \ "cvssScore").headOption.map(_.text.toDouble),
-        authenticationr = t(node \ "cvssAuthenticationr"),
-        availabilityImpact = t(node \ "cvssAvailabilityImpact"),
-        accessVector = t(node \ "cvssAccessVector"),
-        integrityImpact = t(node \ "cvssIntegrityImpact"),
-        accessComplexity = t(node \ "cvssAccessComplexity"),
-        confidentialImpact = t(node \ "cvssConfidentialImpact")
-      ),
+      cvss = cvssScore,
       references = (node \ "references").flatMap(filterWhitespace).map(parseReference(_)),
       vulnerableSoftware = (node \ "vulnerableSoftware").flatMap(filterWhitespace).map(parseVulnerableSoftware)
     ))
   }
 
   def parseIdentifier(node: Node, expectedLabel: String, parseConfidence: Boolean = true): Identifier = {
-    if(node.label != expectedLabel){
-      sys.error("Unexpected label for identifier: "+node.label)
+    // Old ODC produces expectedLabel, new ODC produces package and vulnerabilityIds
+    node.label match {
+      case "suppressedIdentifier" if (node \ "id").nonEmpty => parseIdentifierNew(node, parseConfidence, matched=false) // not sure if matched
+      case `expectedLabel` => parseIdentifierOld(node, parseConfidence)
+      case "package" => parseIdentifierNew(node, parseConfidence, matched=false)
+      case "vulnerabilityIds" => parseIdentifierNew(node, parseConfidence, matched=true)
+      case "suppressedVulnerabilityIds" => parseIdentifierNew(node, parseConfidence, matched=true)
+      case label => sys.error(s"Expected node name package or vulnerabilityIds or $expectedLabel, got: "+label)
     }
+  }
+
+  private val NugetPattern = """^pkg:nuget/([^@]+)@(.*)$""".r
+  private val MavenPattern = """^pkg:maven/([^/@]+)/([^/@]+)@(.*)$""".r
+  private val CpePattern = """^cpe:.*""".r
+
+  private def parseIdentifierNew(node: Node, parseConfidence: Boolean, matched: Boolean): Identifier = {
+    checkElements(node, Set("id", "url", "notes"))
+    // TODO: process currently ignored element “notes”
+    checkParams(node, Set("type", "confidence"))
+    val id = (node \ "id").text
+    val (identifierType, name) = id match {
+      case NugetPattern(name, version) => ("nuget", s"$name:$version")
+      case MavenPattern(groupId, artifactId, version) => ("maven", s"$groupId:$artifactId:$version")
+      case CpePattern() => ("cpe", id)
+      case _ => ("other", id)
+    }
+    identifierPool(Identifier(
+      name = name,
+      url = (node \ "url").text,
+      identifierType = identifierType,
+      confidence = if(parseConfidence) Confidence.withName(node.attribute("confidence").get.text) else Confidence.Medium
+    ))
+  }
+
+  private def parseIdentifierOld(node: Node, parseConfidence: Boolean): Identifier = {
     checkElements(node, Set("name", "url", "notes"))
     // TODO: process currently ignored element “notes”
     checkParams(node, Set("type", "confidence"))
@@ -352,7 +407,7 @@ object OdcParser {
         case text => text // used in new ODC
       },
       url = (node \ "url").text,
-      identifierType = node.attribute("type").get.text,
+      identifierType = try{node.attribute("type").get.text}catch{case e: NoSuchElementException => sys.error(s"No type attribute in $node")},
       confidence = if(parseConfidence) Confidence.withName(node.attribute("confidence").get.text) else Confidence.Medium
     ))
   }
@@ -362,7 +417,7 @@ object OdcParser {
     // TODO: process projectReferences
     checkParams(node, Set("isVirtual"))
     val (vulnerabilities: Seq[Node], suppressedVulnerabilities: Seq[Node]) = (node \ "vulnerabilities").headOption.map(filterWhitespace).getOrElse(Seq()).partition(_.label == "vulnerability")
-    val (identifiers, suppressedIdentifiers) = (node \ "identifiers").headOption.map(filterWhitespace).getOrElse(Seq()).partition(_.label == "identifier")
+    val (identifiers, suppressedIdentifiers) = (node \ "identifiers").headOption.map(filterWhitespace).getOrElse(Seq()).partition(!_.label.startsWith("suppressed"))
     dependencyPool(Dependency(
       fileName = (node \ "fileName").text,
       filePath = (node \ "filePath").text,

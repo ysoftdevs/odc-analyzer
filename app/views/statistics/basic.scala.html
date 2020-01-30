@@ -53,7 +53,7 @@
     }
 
 
-    <div id="weakness" data-data='@{plotData(lds.weaknessesFrequency)}'></div>
+    @*<div id="weakness" data-data='@{plotData(lds.weaknessesFrequency)}'></div>*@
     <script type="text/javascript">
 
     var WeaknessIdentifier = function(brief, verbose){
@@ -122,7 +122,7 @@
         el.attr('data-initialized', 'true');
     };
     $(document).ready(function(){
-        initPlot('weakness');
+        //initPlot('weakness');
         var n=0;
         $('.stats').click(function(e){
             console.log(e);
@@ -174,7 +174,7 @@
                     </td>
                     <td class="text-right">
                         @s.vulnerabilities.size
-                        <button type="button" class="glyphicon glyphicon-signal btn btn-xs stats" @if(s.vulnerabilities.isEmpty){disabled="disabled"} data-data="@plotData(s.weaknessesFrequency)"></button>
+                        @*<button type="button" class="glyphicon glyphicon-signal btn btn-xs stats" @if(s.vulnerabilities.isEmpty){disabled="disabled"} data-data="@plotData(s.weaknessesFrequency)"></button>*@
                     </td>
                     <td class="text-right">@s.vulnerableDependencies.size</td>
                     <td class="text-right">@s.dependencies.size</td>

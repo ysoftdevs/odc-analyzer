@@ -48,7 +48,7 @@ class OdcDbService @Inject()(@NamedDatabase("odc") protected val dbConfigProvide
         } yield Some(
           com.ysoft.odc.Vulnerability(
             name = bareVuln.cve,
-            cweOption = bareVuln.cweOption,
+            //cweOption = bareVuln.cweOption,
             cvss = bareVuln.cvss,
             description = bareVuln.description,
             vulnerableSoftware = vulnerableSoftware,

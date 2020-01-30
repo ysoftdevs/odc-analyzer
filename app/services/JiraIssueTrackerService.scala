@@ -110,7 +110,7 @@ class JiraIssueTrackerService @Inject()(absolutizer: Absolutizer, @Named("jira-s
     "project" -> Json.obj(
       "id" -> projectId.toString
     ),
-    "summary" -> s"${vulnerability.name} – ${vulnerability.cweOption.map(_ + ": ").getOrElse("")}${vulnerability.description.take(50).takeWhile(c => c != '\n' && c != '\r')}…"
+    "summary" -> s"${vulnerability.name} – ${vulnerability.description.take(50).takeWhile(c => c != '\n' && c != '\r')}…"
   )
 
   private def extractManagedFields(vulnerability: VulnerabilityOverview, projects: Set[ReportInfo], requiresDescription: Boolean): JsObject = {
@@ -121,7 +121,7 @@ class JiraIssueTrackerService @Inject()(absolutizer: Absolutizer, @Named("jira-s
     )
     val descriptionObj = if(requiresDescription || vulnerability.isSureAboutDescription) Json.obj("description" -> extractDescription(vulnerability)) else Json.obj()
     val additionalFields = Seq[Option[(String, JsValueWrapper)]](
-      fields.cweId.map(id => id -> vulnerability.cweOption.fold("")(_.brief)),
+      //fields.cweId.map(id => id -> vulnerability.cweOption.fold("")(_.brief)),
       fields.linkId.map(id => id -> link(vulnerability)),
       fields.severityId.map(id => id -> vulnerability.cvssScore),
       fields.projectsId.map(id => id -> projects.map(friendlyProjectNameString).toSeq.sortBy( x => (x.toLowerCase(), x)).mkString("\n"))

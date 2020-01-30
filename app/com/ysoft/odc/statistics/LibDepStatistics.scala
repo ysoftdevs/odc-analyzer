@@ -17,12 +17,12 @@ case class LibDepStatistics(libraries: Set[(Int, Library)], dependencies: Set[Gr
   lazy val vulnerableDependencies = dependencies.filter(_.isVulnerable)
   lazy val (dependenciesWithCpe, dependenciesWithoutCpe) = dependencies.partition(_.hasCpe)
   lazy val cpeRatio = dependenciesWithCpe.size.toDouble / dependencies.size.toDouble
-  lazy val weaknesses = vulnerabilities.flatMap(_.cweOption)
-  lazy val weaknessesFrequency = LibDepStatistics.computeWeaknessesFrequency(vulnerabilities)
+  //lazy val weaknesses = vulnerabilities.flatMap(_.cweOption)
+  //lazy val weaknessesFrequency = LibDepStatistics.computeWeaknessesFrequency(vulnerabilities)
 }
 
 object LibDepStatistics{
-  private def computeWeaknessesFrequency(vulnerabilities: Set[Vulnerability]) = vulnerabilities.toSeq.map(_.cweOption).groupBy(identity).mapValues(_.size).map(identity).withDefaultValue(0)
+  //private def computeWeaknessesFrequency(vulnerabilities: Set[Vulnerability]) = vulnerabilities.toSeq.map(_.cweOption).groupBy(identity).mapValues(_.size).map(identity).withDefaultValue(0)
   def apply(libraries: Set[(Int, Library)], dependencies: Set[GroupedDependency], parsedReports: Result): LibDepStatistics = LibDepStatistics(
     libraries = libraries,
     dependencies = dependencies,
