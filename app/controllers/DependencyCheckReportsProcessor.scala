@@ -34,8 +34,13 @@ final class DependencyCheckReportsProcessor @Inject() (
     if(dt.forall(_.isDigit)){
       new DateTime(dt.toLong)  // TODO: timezone (I don't care much, though)
     }else{
-      val formatter = DateTimeFormat.forPattern("dd/MM/yyyy HH:mm:ss") // TODO: timezone (I don't care much, though)
-      formatter.parseDateTime(dt)
+      val formatter1 = DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss") // TODO: timezone (I don't care much, though)
+      val formatter2 = DateTimeFormat.forPattern("dd/MM/yyyy HH:mm:ss") // TODO: timezone (I don't care much, though)
+      try{
+        formatter1.parseDateTime(dt)
+      }catch {case e: IllegalArgumentException =>
+        formatter2.parseDateTime(dt)
+      }
     }
   }
 
