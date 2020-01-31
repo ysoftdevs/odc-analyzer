@@ -100,7 +100,7 @@ class OdcDbService @Inject()(@NamedDatabase("odc") protected val dbConfigProvide
 
   private def loadUpdateProperties(): Future[Map[String, Long]] = db.run(properties.filter(_.id like "NVD CVE%").result).map(_.map{case OdcProperty(id, value) => (id, value.toLong)}.toMap)
 
-  def loadLastDbUpdate(): Future[DateTime] = loadUpdateProperties().map(vals => new DateTime(vals.values.max)) // TODO: timezone (I don't care much, though)
+  def loadLastDbUpdate(): Future[DateTime] = loadUpdateProperties().map { vals => new DateTime(vals.values.max*1000) } // TODO: timezone (I don't care much, though)
 
 }
 
