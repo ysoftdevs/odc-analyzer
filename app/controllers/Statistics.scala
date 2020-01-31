@@ -129,35 +129,35 @@ class Statistics @Inject()(
   private def select(allResults: (Map[String, (Build, ArtifactItem, ArtifactFile)], Map[String, Throwable]), selectorOption: Option[String]): Option[ResultWithSelection] = select(allResults._1, allResults._2, selectorOption)
   private def select(successfulResults: Map[String, (Build, ArtifactItem, ArtifactFile)], failedResults: Map[String, Throwable], selectorOption: Option[String]): Option[ResultWithSelection] = dependencyCheckReportsParser.parseReports(successfulResults, failedResults).selection(selectorOption)
 
-  def searchVulnerableSoftware(versionlessCpes: Seq[String], versionOption: Option[String]) = ReadAction.async{ implicit req =>
-    if(versionlessCpes.isEmpty){
-      Future.successful(notFound())
-    }else{
-      val now = DateTime.now()
-      val oldDataThreshold = 2.days
-      val lastDbUpdateFuture = odcDbService.loadLastDbUpdate()
-      val isOldFuture = lastDbUpdateFuture.map{ lastUpdate => now - oldDataThreshold > lastUpdate}
-      versionOption match {
-        case Some(version) =>
-          for {
-            res1 <- Future.traverse(versionlessCpes) { versionlessCpe => odcDbService.findRelevantCpes(versionlessCpe, version) }
-            vulnIds = res1.flatten.map(_.vulnerabilityId).toSet
-            vulns <- Future.traverse(vulnIds)(id => odcDbService.getVulnerabilityDetails(id).map(_.get))
-            isOld <- isOldFuture
-          } yield Ok(views.html.statistics.vulnerabilitiesForLibrary(
-            vulnsAndVersionOption = Some((vulns, version)),
-            cpes = versionlessCpes,
-            isDbOld = isOld
-          ))
-        case None =>
-          for(isOld <- isOldFuture) yield Ok(views.html.statistics.vulnerabilitiesForLibrary(
-            vulnsAndVersionOption = None,
-            cpes = versionlessCpes,
-            isDbOld = isOld
-          ))
-      }
-    }
-  }
+//  def searchVulnerableSoftware(versionlessCpes: Seq[String], versionOption: Option[String]) = ReadAction.async{ implicit req =>
+//    if(versionlessCpes.isEmpty){
+//      Future.successful(notFound())
+//    }else{
+//      val now = DateTime.now()
+//      val oldDataThreshold = 2.days
+//      val lastDbUpdateFuture = odcDbService.loadLastDbUpdate()
+//      val isOldFuture = lastDbUpdateFuture.map{ lastUpdate => now - oldDataThreshold > lastUpdate}
+//      versionOption match {
+//        case Some(version) =>
+//          for {
+//            res1 <- Future.traverse(versionlessCpes) { versionlessCpe => odcDbService.findRelevantCpes(versionlessCpe, version) }
+//            vulnIds = res1.flatten.map(_.vulnerabilityId).toSet
+//            vulns <- Future.traverse(vulnIds)(id => odcDbService.getVulnerabilityDetails(id).map(_.get))
+//            isOld <- isOldFuture
+//          } yield Ok(views.html.statistics.vulnerabilitiesForLibrary(
+//            vulnsAndVersionOption = Some((vulns, version)),
+//            cpes = versionlessCpes,
+//            isDbOld = isOld
+//          ))
+//        case None =>
+//          for(isOld <- isOldFuture) yield Ok(views.html.statistics.vulnerabilitiesForLibrary(
+//            vulnsAndVersionOption = None,
+//            cpes = versionlessCpes,
+//            isDbOld = isOld
+//          ))
+//      }
+//    }
+//  }
 
   def basic(selectorOption: Option[String]) = ReadAction.async{ implicit req =>
     val (lastRefreshTime, resultsFuture) = projectReportsProvider.resultsForVersions(versions)

@@ -45,7 +45,7 @@ POST        /notifications/watch              controllers.Notifications.watch(pr
 POST        /notifications/unwatch            controllers.Notifications.unwatch(project: String, filter: Option[String])
 GET         /notifications/cron/:key          controllers.Notifications.cron(key: String, purgeCache: Boolean ?= true)
 
-GET         /libraries/vulnerabilities        controllers.Statistics.searchVulnerableSoftware(versionlessCpes: Seq[String], versionOption: Option[String])
+#GET         /libraries/vulnerabilities        controllers.Statistics.searchVulnerableSoftware(versionlessCpes: Seq[String], versionOption: Option[String])
 
 GET         /vulnerability/:name              controllers.Statistics.vulnerability(name, selector: Option[String])
 

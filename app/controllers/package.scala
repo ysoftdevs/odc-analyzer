@@ -47,11 +47,12 @@ package object controllers {
   def vulnerableSoftwareSearches(groupedDependency: GroupedDependency): Seq[(Call, String)] = {
     val legacySearchOption = groupedDependency.cpeIdentifiers match {
       case Seq() => None
-      case cpeIds => Some(
-        routes.Statistics.searchVulnerableSoftware(
-          cpeIds.map(_.name.split(':').take(4).mkString(":")).toSeq, None
-        ) -> "Search by CPE (legacy option)"
-      )
+      case cpeIds => None
+//        Some(
+//        routes.Statistics.searchVulnerableSoftware(
+//          cpeIds.map(_.name.split(':').take(4).mkString(":")).toSeq, None
+//        ) -> "Search by CPE (legacy option)"
+//      )
     }
     val mavenSearches = groupedDependency.mavenIdentifiers.map(_.name).toSeq.sorted.map{mavenIdentifier =>
       val Array(groupId, artifactId, version) = mavenIdentifier.split(":", 3)

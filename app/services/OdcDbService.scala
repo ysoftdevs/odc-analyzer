@@ -23,13 +23,13 @@ class OdcDbService @Inject()(@NamedDatabase("odc") protected val dbConfigProvide
 
   import dbConfig.driver.api._
 
-  private def getVulnerableSoftware(id: Int): Future[Seq[com.ysoft.odc.VulnerableSoftware]] = {
-    db.run(softwareVulnerabilities.joinLeft(cpeEntries).on((sv, ce) => sv.cpeEntryId === ce.id).filter{case (sv, ceo) => sv.vulnerabilityId === id}.result).map{rawRefs =>
-      rawRefs.map{
-        case (softVuln, Some((_, cpeEntry))) => com.ysoft.odc.VulnerableSoftware(allPreviousVersion = softVuln.includesAllPreviousVersions, name=cpeEntry.cpe)
-      }
-    }
-  }
+//  private def getVulnerableSoftware(id: Int): Future[Seq[com.ysoft.odc.VulnerableSoftware]] = {
+//    db.run(softwareVulnerabilities.joinLeft(cpeEntries).on((sv, ce) => sv.cpeEntryId === ce.id).filter{case (sv, ceo) => sv.vulnerabilityId === id}.result).map{rawRefs =>
+//      rawRefs.map{
+//        case (softVuln, Some((_, cpeEntry))) => com.ysoft.odc.VulnerableSoftware(/*allPreviousVersion = softVuln.includesAllPreviousVersions, */name=cpeEntry.cpe)
+//      }
+//    }
+//  }
 
   private def getReferences(id: Int): Future[Seq[com.ysoft.odc.Reference]] = db.run(references.filter(_.cveId === id).map(_.base).result)
 
@@ -43,7 +43,7 @@ class OdcDbService @Inject()(@NamedDatabase("odc") protected val dbConfigProvide
     db.run(vulnerabilities.filter(cond).result).map(_.headOption) flatMap { bareVulnOption =>
       bareVulnOption.fold[Future[Option[com.ysoft.odc.Vulnerability]]](Future.successful(None)) { case (id, bareVuln) =>
         for {
-          vulnerableSoftware <- getVulnerableSoftware(id)
+//          vulnerableSoftware <- getVulnerableSoftware(id)
           references <- getReferences(id)
         } yield Some(
           com.ysoft.odc.Vulnerability(
@@ -51,7 +51,7 @@ class OdcDbService @Inject()(@NamedDatabase("odc") protected val dbConfigProvide
             //cweOption = bareVuln.cweOption,
             cvss = bareVuln.cvss,
             description = bareVuln.description,
-            vulnerableSoftware = vulnerableSoftware,
+            //vulnerableSoftware = vulnerableSoftware,
             references = references
           )
         )
@@ -69,34 +69,34 @@ class OdcDbService @Inject()(@NamedDatabase("odc") protected val dbConfigProvide
     DependencyVersionUtil.parseVersion(version)
   }
 
-  def findRelevantCpes(versionlessCpe: String, version: String) = {
-    println(s"versionlessCpe: $versionlessCpe")
-    val Seq("cpe", "/a", vendor, product, rest @ _*) = versionlessCpe.split(':').toSeq
-    val cpesFuture = db.run(
-      cpeEntries.filter(c =>
-        c.vendor === vendor && c.product === product
-      ).result
-    )
-    for(cpes <- cpesFuture){println(s"cpes: $cpes")}
-    val cpesMapFuture = cpesFuture.map(_.toMap)
-    val cpeIdsFuture = cpesFuture.map(_.map(_._1))
-    val parsedVersion = parseVersion(version)
-    val res = for{
-      cpeIds <- cpeIdsFuture
-      relevantVulnerabilities <- db.run(
-        softwareVulnerabilities.join(vulnerabilities).on( (sv, v) => sv.vulnerabilityId === v.id)
-          .filter{case (sv, v) => sv.cpeEntryId inSet cpeIds}.map{case (sv, v) ⇒ sv}.result
-      ).map(_.groupBy(_.vulnerabilityId).mapValues(_.toSet))
-      cpesMap <- cpesMapFuture
-      //relevantVulnerabilities <- db.run(vulnerabilities.filter(_.id inSet relevantVulnerabilityIds).result)
-    } yield relevantVulnerabilities.filter{case (vulnId, sv) => Option(CveDbHelper.matchSofware(
-      vulnerableSoftware = sv.map(sv => cpesMap(sv.cpeEntryId).cpe -> sv.includesAllPreviousVersions).toMap,
-      vendor = vendor,
-      product = product,
-      identifiedVersion = parsedVersion
-    )).isDefined}
-    res.map(_.values.toSet.flatten)
-  }
+//  def findRelevantCpes(versionlessCpe: String, version: String) = {
+//    println(s"versionlessCpe: $versionlessCpe")
+//    val Seq("cpe", "/a", vendor, product, rest @ _*) = versionlessCpe.split(':').toSeq
+//    val cpesFuture = db.run(
+//      cpeEntries.filter(c =>
+//        c.vendor === vendor && c.product === product
+//      ).result
+//    )
+//    for(cpes <- cpesFuture){println(s"cpes: $cpes")}
+//    val cpesMapFuture = cpesFuture.map(_.toMap)
+//    val cpeIdsFuture = cpesFuture.map(_.map(_._1))
+//    val parsedVersion = parseVersion(version)
+//    val res = for{
+//      cpeIds <- cpeIdsFuture
+//      relevantVulnerabilities <- db.run(
+//        softwareVulnerabilities.join(vulnerabilities).on( (sv, v) => sv.vulnerabilityId === v.id)
+//          .filter{case (sv, v) => sv.cpeEntryId inSet cpeIds}.map{case (sv, v) ⇒ sv}.result
+//      ).map(_.groupBy(_.vulnerabilityId).mapValues(_.toSet))
+//      cpesMap <- cpesMapFuture
+//      //relevantVulnerabilities <- db.run(vulnerabilities.filter(_.id inSet relevantVulnerabilityIds).result)
+//    } yield relevantVulnerabilities.filter{case (vulnId, sv) => Option(CveDbHelper.matchSofware(
+//      vulnerableSoftware = sv.map(sv => cpesMap(sv.cpeEntryId).cpe -> sv.includesAllPreviousVersions).toMap,
+//      vendor = vendor,
+//      product = product,
+//      identifiedVersion = parsedVersion
+//    )).isDefined}
+//    res.map(_.values.toSet.flatten)
+//  }
 
   private def loadUpdateProperties(): Future[Map[String, Long]] = db.run(properties.filter(_.id like "NVD CVE%").result).map(_.map{case OdcProperty(id, value) => (id, value.toLong)}.toMap)
 

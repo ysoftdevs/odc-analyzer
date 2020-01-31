@@ -177,7 +177,7 @@ object Confidence extends Enumeration {
 
 final case class Reference(source: String, url: String, name: String)
 
-final case class VulnerableSoftware(allPreviousVersion: Boolean, name: String){
+final case class VulnerableSoftware(/*allPreviousVersion: Boolean,*/ name: String){
   def containsVersion: Boolean = name.count(_==':') >= 4
   def isCpe: Boolean = name.startsWith("cpe:")
   def isVersionless: Boolean = isCpe && !containsVersion
@@ -207,16 +207,16 @@ object RichBoolean{
   @inline implicit def toRichBoolean(value: Boolean) = new RichBoolean(value)
 }
 
-final case class Vulnerability(name: String, /*cweOption: Option[CWE],*/ cvss: CvssRating, description: String, vulnerableSoftware: Seq[VulnerableSoftware], references: Seq[Reference]){
+final case class Vulnerability(name: String, /*cweOption: Option[CWE],*/ cvss: CvssRating, description: String, /*vulnerableSoftware: Seq[VulnerableSoftware],*/ references: Seq[Reference]){
   import RichBoolean.toRichBoolean
   def cvssScore = cvss.score
-  def likelyMatchesOnlyWithoutVersion(dependencyIdentifiers: Set[Identifier]) = dependencyIdentifiers.forall { id =>
-    // Rather a quick hack. Maybe it would be better to do this check in ODC.
-    val versionlessCpeIdentifierOption = id.toCpeIdentifierOption.map(_.split(':').take(4).mkString(":"))
-    versionlessCpeIdentifierOption.fold(true){ versionlessCpeIdentifier =>
-      vulnerableSoftware.forall(vs => vs.name.startsWith(versionlessCpeIdentifier) ==> vs.isVersionless)
-    }
-  }
+//  def likelyMatchesOnlyWithoutVersion(dependencyIdentifiers: Set[Identifier]) = dependencyIdentifiers.forall { id =>
+//    // Rather a quick hack. Maybe it would be better to do this check in ODC.
+//    val versionlessCpeIdentifierOption = id.toCpeIdentifierOption.map(_.split(':').take(4).mkString(":"))
+//    versionlessCpeIdentifierOption.fold(true){ versionlessCpeIdentifier =>
+//      vulnerableSoftware.forall(vs => vs.name.startsWith(versionlessCpeIdentifier) ==> vs.isVersionless)
+//    }
+//  }
 }
 
 final case class Identifier(name: String, confidence: Confidence.Confidence, url: String, identifierType: String) {
@@ -284,8 +284,8 @@ object OdcParser {
       sys.error(s"Unexpected element for vulnerableSoftware: ${node.label}")
     }
     vulnerableSoftwarePool(VulnerableSoftware(
-      name = node.text,
-      allPreviousVersion = node.boolAttribute("allPreviousVersion").getOrElse(false)
+      name = node.text
+      //allPreviousVersion = node.boolAttribute("allPreviousVersion").getOrElse(false)
     ))
   }
 
@@ -356,8 +356,8 @@ object OdcParser {
       //cweOption = (node \ "cwe").headOption.map(_.text).map(CWE.forIdentifierWithDescription),
       description = (node \ "description").text,
       cvss = cvssScore,
-      references = (node \ "references").flatMap(filterWhitespace).map(parseReference(_)),
-      vulnerableSoftware = (node \ "vulnerableSoftware").flatMap(filterWhitespace).map(parseVulnerableSoftware)
+      references = (node \ "references").flatMap(filterWhitespace).map(parseReference(_))
+      //vulnerableSoftware = (node \ "vulnerableSoftware").flatMap(filterWhitespace).map(parseVulnerableSoftware)
     ))
   }
 
